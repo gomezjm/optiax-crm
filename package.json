@@ -6,8 +6,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "build": "pnpm --filter @optiax/shared build",
+    "typecheck": "pnpm build && pnpm -r typecheck",
+    "test": "pnpm build && pnpm -r test",
     "db:test": "vitest run --config supabase/tests/vitest.config.ts",
     "gen:types": "supabase gen types typescript --local --schema public > packages/shared/src/db-types.ts",
     "seed:auth": "tsx scripts/seed-auth.ts",

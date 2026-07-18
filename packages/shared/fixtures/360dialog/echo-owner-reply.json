@@ -1,0 +1,32 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "1000000000000001",
+      "changes": [
+        {
+          "field": "smb_message_echoes",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "573001112233",
+              "phone_number_id": "111000111000111"
+            },
+            "message_echoes": [
+              {
+                "from": "573001112233",
+                "to": "573015550101",
+                "id": "wamid.HBgMNTczMDAxMTEyMjMzFQIAEhggQTQwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAA",
+                "timestamp": "1752864600",
+                "type": "text",
+                "text": {
+                  "body": "Hola Camila, soy Valentina la dueña 😊 sí tenemos la blusa, ya te mando fotos"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

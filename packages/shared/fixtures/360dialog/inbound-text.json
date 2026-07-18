@@ -1,0 +1,37 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "1000000000000001",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "573001112233",
+              "phone_number_id": "111000111000111"
+            },
+            "contacts": [
+              {
+                "profile": { "name": "Camila Rojas" },
+                "wa_id": "573015550101"
+              }
+            ],
+            "messages": [
+              {
+                "from": "573015550101",
+                "id": "wamid.HBgMNTczMDE1NTUwMTAxFQIAEhggQTEwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAA",
+                "timestamp": "1752861600",
+                "type": "text",
+                "text": {
+                  "body": "¡Hola! ¿Tienen la blusa de lino en talla M? ¿Cuánto vale?"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
