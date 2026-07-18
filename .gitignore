@@ -1,0 +1,21 @@
+# deps
+node_modules/
+
+# builds
+dist/
+.next/
+*.tsbuildinfo
+
+# supabase local
+supabase/.branches
+supabase/.temp
+
+# env
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+coverage/
+.DS_Store

@@ -1,0 +1,32 @@
+{
+  "name": "optiax-crm",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:test": "vitest run --config supabase/tests/vitest.config.ts",
+    "gen:types": "supabase gen types typescript --local --schema public > packages/shared/src/db-types.ts",
+    "seed:auth": "tsx scripts/seed-auth.ts",
+    "simulate": "tsx scripts/simulate.ts",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "eslint": "^9.28.0",
+    "typescript-eslint": "^8.34.0",
+    "@eslint/js": "^9.28.0",
+    "prettier": "^3.5.3",
+    "supabase": "^2.24.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.3",
+    "@supabase/supabase-js": "^2.50.0",
+    "pg": "^8.16.0",
+    "@types/pg": "^8.15.4"
+  }
+}
