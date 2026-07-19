@@ -13,6 +13,7 @@
     "gen:types": "supabase gen types typescript --local --schema public > packages/shared/src/db-types.ts",
     "seed:auth": "tsx scripts/seed-auth.ts",
     "simulate": "tsx scripts/simulate.ts",
+    "capture": "tsx scripts/capture-webhook.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

@@ -15,6 +15,9 @@ supabase/.temp
 .env.*
 !.env.example
 
+# local webhook captures (raw payloads carry phone numbers — never commit)
+captures/
+
 # misc
 .DS_Store
 coverage/
