@@ -99,6 +99,17 @@ anything intentionally not done. Spec: `docs/specs/phase-0-contracts.md`.
 29. `db:test` requires `supabase db reset && pnpm seed:auth` first (CI does this; the
     helper error message says so if sign-in fails).
 
+30. **Explicit API-role grants (migration 6)**: the current Supabase Postgres image
+    (17.x) ships hardened default ACLs — tables created by `postgres` in migrations give
+    `anon`/`authenticated`/`service_role` NO DML by default. Migration
+    `20260718000600_grants.sql` grants SELECT/INSERT/UPDATE/DELETE to `authenticated`
+    and `service_role` explicitly (plus default privileges for future tables), with
+    carve-outs re-asserted: `prompt_versions` UPDATE/DELETE, `tenants`/`profiles`
+    INSERT/DELETE revoked from `authenticated`; `anon` stays at zero.
+31. **`ws` polyfill**: supabase-js v2 expects a `WebSocket` global; Node 20 doesn't
+    provide one. `scripts/seed-auth.ts` and `supabase/tests/helpers.ts` polyfill it via
+    the `ws` package (root devDependency). Moot once the repo moves to Node 22.
+
 ## Skipped / deferred
 
 - No campaign seed rows (spec §8 doesn't list them; `wa_templates` + `segments` cover the
