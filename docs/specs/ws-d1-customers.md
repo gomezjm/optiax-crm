@@ -63,3 +63,13 @@ Select N rows (+ "select all matching filter" up to a 500 cap) → action bar: a
 - [ ] All §8 tests green; `pnpm typecheck && pnpm test && pnpm db:test` green; production build passes
 - [ ] Every UI string in `es.json`; no service key; no schema changes (if one proved necessary: new migration + tenant_id + RLS + grants, and flag it)
 - [ ] `SESSION_NOTES.md`: numbered assumptions, demo script, questions
+
+## 10. Addendum — ratified decisions + coordinator answers (2026-07-19)
+
+All 20 session assumptions ratified. Answers to the five questions:
+
+1. **Phones unify on bare digits everywhere** — normalize at write time via `normalizeCustomerPhone` in every path (manual entry included; today only import does), display-format in the UI. No `phone_normalized` column. **Carried to D2.**
+2. **Subpath-export split approved** (`@optiax/shared/webhook` etc.); the `browser`-field stub stands until then. **Carried to R2** (it touches runtime/script imports).
+3. **shadcn extras ratified**: the `shadcn` runtime package, `sonner`, `tw-animate-css` fall under the shadcn pre-approval — later sessions don't re-litigate. **Stripping `next-themes` and Google-hosted fonts is also canonical**: no externally-hosted fonts ever (privacy + LatAm connectivity); system/self-hosted only.
+4. **Route paths are English, permanently**: `/orders`, `/products`, `/campaigns`, `/agent`, `/settings` (matching `/inbox`, `/customers`). URLs are developer infrastructure; Spanish lives in `es.json` labels. **Rename the placeholders as D2's first task.**
+5. **Yes — seed a boolean def** (`acepta_mayorista`) **and a number def** per tenant, and extend the dashboard DB suite to prove boolean/number attribute filters against real PostgREST. **Carried to D2.**

@@ -15,6 +15,7 @@ Source documents (repo root): `PRD_ LatAm WhatsApp CRM & AI Agent.md` (product s
 | 2026-07-18 | Monorepo, pnpm workspaces: `packages/shared`, `apps/runtime`, `apps/dashboard`. |
 | 2026-07-19 | Phase 2 runs **sequentially** (one session at a time): R1 → D1 → D2 → R2 → R3 → D3 → D4. Each branches off `main` after the previous merge — no cross-branch conflicts to manage. |
 | 2026-07-19 | Phase 1 ratifications: repo-module surface incl. `webhookEvents`/`queue`; envelope parser runtime-local until real payloads; `gemini-2.5-flash` default. See phase-1 spec §9. |
+| 2026-07-19 | D1 ratifications: **English route paths** (`/orders`, `/products`, …) with Spanish labels; **phones stored as bare digits everywhere**; shadcn extras (`shadcn` pkg, `sonner`, `tw-animate-css`) in-scope of the pre-approval; **no externally-hosted fonts, ever**; `packages/shared` subpath-export split approved → R2. See D1 spec §10. |
 | 2026-07-19 | Fixture-session ratifications: (1) **360dialog does not sign deliveries** — `WEBHOOK_VERIFY=stub\|360dialog\|off` enum stands; in Phase 4, `360dialog` mode gains app-layer credential enforcement (secret URL token / Basic-auth header) — never trust the edge alone. (2) 24h window derives from `last_customer_message_at`, never webhook `expiration_timestamp`. (3) `contacts[].user_id`/`from_user_id` (country-prefixed WhatsApp identity) ignored for now; candidate `customers.wa_user_id` column later for identity continuity across number changes — additive migration when justified. |
 
 ## Repo layout (target)
@@ -77,9 +78,10 @@ Hosted Supabase project + deploy (Vercel, Railway), env/secrets, billing, GDPR d
 | Phase 0 | **merged** | `feat/phase-0-contracts` | 31 decisions ratified → spec §11. |
 | Phase 1 | **built + verified live** (52 unit, 221 isolation, 5 integration green; real Gemini E2E) — pending Juan's review + merge | `feat/phase-1-walking-skeleton` (`415a604`, unpushed) | 24 decisions + 5 questions answered → spec §9 addendum. |
 | Fixture correction | **merged** | `feat/fixture-capture-correction` | Envelope capture-verified; `WEBHOOK_VERIFY` enum; ratifications in decisions log. |
-| R1 | **built + verified live** (95 unit, 221 isolation, 9 integration green) — pending Juan's review + merge | `feat/ws-r1-coexistence` (`fa33adf`) | 20 assumptions + 5 answers ratified → R1 spec §8. Echo guesses E1–E5 await Phase 4 capture. |
-| D1 | spec + brief ready; starts after R1 merges | — | First full screen — also establishes the app shell + shadcn/ui foundation all D-sessions reuse. |
-| D2, R2, R3, D3, D4 | queued — sequential: D1 → D2 → R2 → R3 → D3 → D4 | — | **R2 carry-overs from R1**: add `no_published_config` skip reason; require `schedule` for `outside_hours` mode. **D4 note**: revisit `agent_turns.prompt_version_id` nullability for tenant-health observability. |
+| R1 | **merged** | `feat/ws-r1-coexistence` | 20 assumptions + 5 answers ratified → R1 spec §8. Echo guesses E1–E5 await Phase 4 capture. |
+| D1 | **built + verified live** (141 unit, 221 isolation, 9+7 DB tests green, prod build ✓) — pending Juan's review + merge | `feat/ws-d1-customers` (`4e72878`) | 20 assumptions + 5 answers ratified → D1 spec §10. App shell + shadcn foundation established. |
+| D2 | spec + brief ready; starts after D1 merges | — | Carry-overs 0.1–0.3 (English routes, phone digits, seeded bool/number defs). One migration: `total_spent` trigger. |
+| R2, R3, D3, D4 | queued — sequential: D2 → R2 → R3 → D3 → D4 | — | **R2 carry-overs**: `no_published_config` skip reason; `schedule` required for `outside_hours`; **subpath-export split of `packages/shared`** (D1 §10.2). **D4 note**: revisit `agent_turns.prompt_version_id` nullability. |
 | C1–C2 | blocked by Phase 2 | — | |
 
 ## Juan's action items (not agent work)
