@@ -30,8 +30,10 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     data: { user },
   } = await supabase.auth.getUser();
 
+  // The matcher only routes app pages + /login here, so anything that is not
+  // /login is a protected app route.
   const path = request.nextUrl.pathname;
-  if (!user && path.startsWith('/inbox')) {
+  if (!user && path !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
   if (user && path === '/login') {

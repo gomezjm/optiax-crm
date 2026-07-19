@@ -1,5 +1,5 @@
 /**
- * Session refresh + route guard: `/inbox` requires a signed-in user; a
+ * Session refresh + route guard: every app route requires a signed-in user; a
  * signed-in user hitting `/login` goes straight to the inbox.
  */
 import type { NextRequest } from 'next/server';
@@ -10,5 +10,15 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/inbox/:path*', '/login'],
+  matcher: [
+    '/inbox/:path*',
+    '/customers/:path*',
+    '/inicio',
+    '/pedidos',
+    '/productos',
+    '/campanas',
+    '/agente',
+    '/configuracion',
+    '/login',
+  ],
 };

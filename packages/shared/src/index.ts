@@ -34,6 +34,25 @@ export {
 export { AutoReplyTriggerSchema, type AutoReplyTrigger } from './schemas/auto-reply.js';
 
 export {
+  CONSENT_STATUSES,
+  ConsentStatusSchema,
+  normalizeCustomerPhone,
+  PHONE_MIN_DIGITS,
+  PHONE_MAX_DIGITS,
+  AttributeValueSchema,
+  CustomerEditSchema,
+  CustomerCreateSchema,
+  CustomerImportRowSchema,
+  IMPORT_MAX_ROWS,
+  MASS_EDIT_MAX_ROWS,
+  type ConsentStatus,
+  type AttributeValue,
+  type CustomerEdit,
+  type CustomerCreate,
+  type CustomerImportRow,
+} from './schemas/customer.js';
+
+export {
   AGENT_SKIP_REASONS,
   AgentSkipReasonSchema,
   type AgentSkipReason,

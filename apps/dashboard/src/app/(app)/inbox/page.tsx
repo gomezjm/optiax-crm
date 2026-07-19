@@ -5,8 +5,8 @@
  * and the Realtime subscription live in the client component.
  */
 import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '../../lib/supabase/server';
-import { t } from '../../i18n/index';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { t } from '@/i18n/index';
 import { InboxClient, type ConversationListItem } from './inbox-client';
 
 type SnippetSource = {
@@ -21,7 +21,12 @@ function snippetText(message: SnippetSource | undefined): string {
   return t(`inbox.mediaPlaceholder.${message.type === 'text' ? 'other' : message.type}`);
 }
 
-export default async function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ conversation?: string }>;
+}) {
+  const { conversation: requestedConversationId } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -59,5 +64,8 @@ export default async function InboxPage() {
     snippet: snippetText(latestByConversation.get(conversation.id)),
   }));
 
-  return <InboxClient conversations={items} userEmail={user.email ?? ''} />;
+  const initialConversationId =
+    items.find((item) => item.id === requestedConversationId)?.id ?? null;
+
+  return <InboxClient conversations={items} initialConversationId={initialConversationId} />;
 }

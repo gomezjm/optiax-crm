@@ -1,0 +1,21 @@
+Nombre,Teléfono,Correo,Ciudad,Dirección,Género,Grupo de edad,Consentimiento,Talla preferida,Barrio de entrega,Cumpleaños
+Laura Mendoza,+57 310 555 2001,laura.mendoza@example.test,Medellín,Cra 70 #45-12,femenino,25-34,sí,M,Laureles,1996-03-14
+Carlos Restrepo,+57 311 555 2002,carlos.restrepo@example.test,Medellín,Cl 10 #43E-25,masculino,35-44,sí,L,El Poblado,15/07/1988
+Paula Andrea Gil,+57 312 555 2003,,Envigado,Cra 43A #27S-30,femenino,18-24,,S,Zona Sur,2001-11-02
+Jorge Iván Castaño,+57 313 555 2004,jorge.castano@example.test,Itagüí,Cl 36 #52-10,masculino,45-54,no,XL,Centro,
+Mariana Ospina,+57 314 555 2005,mariana.ospina@example.test,Sabaneta,Cl 77 Sur #45-50,femenino,25-34,sí,M,Sabaneta Centro,1994-08-21
+Andrés Felipe Zapata,+57 315 555 2006,andres.zapata@example.test,Bello,Cra 50 #38-15,masculino,25-34,,M,Niquía,1993-05-30
+Valentina Cardona,316 555 2007,valentina.cardona@example.test,Medellín,Cl 33 #65B-20,femenino,18-24,sí,XS,Conquistadores,1999-12-01
+Sofía Herrera,+57 317 555 2008,sofia.herrera@example,Medellín,Cra 81 #30-25,femenino,25-34,sí,S,Belén,1995-02-17
+Camila Rojas,+57 301 555 0101,camila.rojas@example.test,Medellín,Cra 43A #18-95 apto 502,femenino,25-34,sí,M,El Poblado,1995-04-01
+Daniel Múnera,+57 318 555 2010,daniel.munera@example.test,La Estrella,Cl 80 Sur #60-11,masculino,55+,no,XXL,Pueblo Viejo,1965-09-09
+,+57 319 555 2011,sin.nombre@example.test,Medellín,Cl 44 #80-15,femenino,35-44,sí,M,Estadio,1987-06-06
+Lucía Álvarez,123,lucia.alvarez@example.test,Medellín,Cra 65 #48-22,femenino,25-34,sí,S,Suramericana,1997-01-25
+Esteban Quintero,+57 320 555 2013,esteban.quintero@example.test,Medellín,Cl 30 #55-40,masculino,25-34,tal vez,M,Guayabal,1992-10-10
+Isabela Franco,+57 321 555 2014,isabela.franco@example.test,Rionegro,Cl 47 #62-30,femenino,18-24,sí,S,San Antonio,03-1998
+Juan Pablo Arango,+57 322 555 2015,juanp.arango@example.test,Medellín,Cra 43B #16-95,masculino,35-44,sí,GG,Manila,1986-04-18
+Manuela Betancur,+57 323 555 2016,manuela.betancur@example.test,Medellín,Cl 53 #46-15,femenino,25-34,sí,M,Prado,1994-11-28
+Ricardo Palacio,+57 324 555 2017,ricardo.palacio@example.test,Copacabana,Cra 46 #50-20,masculino,45-54,no,L,Machado,1972-07-07
+Alejandra Mesa,+57 325 555 2018,alejandra.mesa@example.test,Medellín,Cl 10A #40-30,femenino,25-34,sí,M,Astorga,1996-06-15
+Mariana Ospina,+57 314 555 2005,mariana.duplicada@example.test,Sabaneta,Cl 77 Sur #45-50,femenino,25-34,sí,M,Sabaneta Centro,1994-08-21
+Tomás Vélez,+57 326 555 2020,tomas.velez@example.test,Medellín,Cra 35 #7-20,masculino,18-24,sí,S,Provenza,2000-01-05

@@ -6,10 +6,9 @@
  * the selected conversation — new agent replies appear live.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import type { Database } from '@optiax/shared';
-import { createSupabaseBrowserClient } from '../../lib/supabase/browser';
-import { t } from '../../i18n/index';
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { t } from '@/i18n/index';
 
 type MessageRow = Database['public']['Tables']['messages']['Row'];
 
@@ -47,14 +46,15 @@ function sourceLabel(source: MessageRow['source']): string {
 
 export function InboxClient({
   conversations,
-  userEmail,
+  initialConversationId,
 }: {
   conversations: ConversationListItem[];
-  userEmail: string;
+  initialConversationId: string | null;
 }) {
-  const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const [selectedId, setSelectedId] = useState<string | null>(conversations[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialConversationId ?? conversations[0]?.id ?? null,
+  );
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [loading, setLoading] = useState(false);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
@@ -105,42 +105,18 @@ export function InboxClient({
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function onSignOut() {
-    await supabase.auth.signOut();
-    router.replace('/login');
-    router.refresh();
-  }
-
   return (
-    <main style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <main style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <header
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
           padding: '10px 16px',
           background: '#075e54',
           color: '#ffffff',
         }}
       >
-        <strong>
-          {t('common.appName')} — {t('inbox.title')}
-        </strong>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
-          {userEmail}
-          <button
-            onClick={() => void onSignOut()}
-            style={{
-              padding: '6px 10px',
-              border: '1px solid rgba(255,255,255,0.5)',
-              borderRadius: 6,
-              background: 'transparent',
-              color: '#ffffff',
-            }}
-          >
-            {t('common.signOut')}
-          </button>
-        </span>
+        <strong>{t('inbox.title')}</strong>
       </header>
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
