@@ -15,6 +15,7 @@ Source documents (repo root): `PRD_ LatAm WhatsApp CRM & AI Agent.md` (product s
 | 2026-07-18 | Monorepo, pnpm workspaces: `packages/shared`, `apps/runtime`, `apps/dashboard`. |
 | 2026-07-19 | Phase 2 runs **sequentially** (one session at a time): R1 → D1 → D2 → R2 → R3 → D3 → D4. Each branches off `main` after the previous merge — no cross-branch conflicts to manage. |
 | 2026-07-19 | Phase 1 ratifications: repo-module surface incl. `webhookEvents`/`queue`; envelope parser runtime-local until real payloads; `gemini-2.5-flash` default. See phase-1 spec §9. |
+| 2026-07-19 | Fixture-session ratifications: (1) **360dialog does not sign deliveries** — `WEBHOOK_VERIFY=stub\|360dialog\|off` enum stands; in Phase 4, `360dialog` mode gains app-layer credential enforcement (secret URL token / Basic-auth header) — never trust the edge alone. (2) 24h window derives from `last_customer_message_at`, never webhook `expiration_timestamp`. (3) `contacts[].user_id`/`from_user_id` (country-prefixed WhatsApp identity) ignored for now; candidate `customers.wa_user_id` column later for identity continuity across number changes — additive migration when justified. |
 
 ## Repo layout (target)
 
@@ -56,7 +57,7 @@ One thin end-to-end slice: fixture webhook POSTed to local runtime → signature
 C1: segment rule engine + Segments screen. C2: WhatsApp template manager (Meta submission via 360dialog), campaign broadcasts + ROI metrics, auto-replies. Depends on D1 + R1 (send path, 24h/template rules).
 
 ### Phase 4 — Onboarding & ops
-360dialog Embedded Signup (coexistence QR), contact/history import webhooks, n8n cold paths (onboarding, keep-alive alerts, digests), team roles UI.
+360dialog Embedded Signup (coexistence QR), contact/history import webhooks, n8n cold paths (onboarding, keep-alive alerts, digests), team roles UI. Also owed from earlier ratifications: confirm production webhook transport; app-layer credential enforcement for `WEBHOOK_VERIFY=360dialog` (secret URL token / Basic-auth header); capture real `smb_message_echoes` + history-sync payloads from a coexistence number and graduate `envelope.ts` types to `packages/shared`.
 
 ### Phase 5 — Hardening & launch
 Hosted Supabase project + deploy (Vercel, Railway), env/secrets, billing, GDPR deletion endpoint, observability dashboards, load test on webhook path.
@@ -75,8 +76,8 @@ Hosted Supabase project + deploy (Vercel, Railway), env/secrets, billing, GDPR d
 |---|---|---|---|
 | Phase 0 | **merged** | `feat/phase-0-contracts` | 31 decisions ratified → spec §11. |
 | Phase 1 | **built + verified live** (52 unit, 221 isolation, 5 integration green; real Gemini E2E) — pending Juan's review + merge | `feat/phase-1-walking-skeleton` (`415a604`, unpushed) | 24 decisions + 5 questions answered → spec §9 addendum. |
-| Fixture correction | brief ready; runs right after P1 merge + payload capture | — | Sandbox live; capture tooling in working tree. Sandbox **cannot** emit `smb_message_echoes` — echo capture needs a coexistence number (Phase 4). |
-| R1 | spec + brief ready; starts after fixture correction merges | — | Includes status ordering guard (P1 Q4). Echo stays reconstruction, isolated in `envelope.ts`. |
+| Fixture correction | **built + verified** (all suites green, live E2E) — pending Juan's review + merge | `feat/fixture-capture-correction` (`940b398`) | Envelope confirmed against 7 captures; `status-sent.json` added; unsigned-delivery reality → `WEBHOOK_VERIFY` enum. 3 questions ratified → decisions log. |
+| R1 | spec + brief ready; starts after fixture correction merges | — | Includes status ordering guard (P1 Q4). Echo stays reconstruction, isolated in `envelope.ts`. Window math from `last_customer_message_at` re-confirmed. |
 | D1, D2, R2, R3, D3, D4 | queued — **sequential mode** (Juan runs one session at a time): fixtures → R1 → D1 → D2 → R2 → R3 → D3 → D4 | — | Order may adapt per findings. |
 | C1–C2 | blocked by Phase 2 | — | |
 

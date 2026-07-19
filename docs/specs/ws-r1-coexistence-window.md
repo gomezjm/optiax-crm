@@ -33,6 +33,7 @@ Meta rule: free-form messages only within 24h of the customer's last message. Im
 - `assertWithinWindow(conversation)` in the send path (the only place outbound sends happen). Inbound-triggered replies trivially pass (the inbound just arrived and updated `last_customer_message_at`); the guard exists so **future** callers (campaigns, dashboard composer, R2 tools) inherit enforcement for free.
 - Outside window → do not send, record `agent_turn` skip (`reason: 'outside_24h_window'`), log loudly. Template fallback is C2's job.
 - Edge: `last_customer_message_at IS NULL` (no customer message ever) → outside window.
+- **Ratified (fixture-session Q2)**: the window derives from our own `last_customer_message_at` + clock, never from webhook `conversation.expiration_timestamp` (the sandbox emits it equal to `timestamp`, and we don't want Meta's billing-conversation object as our compliance source anyway). Ignore that field entirely.
 
 ## 4. Operating hours + master toggle
 
