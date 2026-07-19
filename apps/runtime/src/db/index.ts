@@ -11,7 +11,8 @@
  *
  * The raw client never leaves this module. No exceptions.
  */
-import type { Database, Json } from '@optiax/shared';
+import { validateAgentConfig, type AgentConfig, type Database, type Json } from '@optiax/shared';
+import { shouldRecordStatus } from '../wa/status-rank.js';
 import { createServiceClient, type ServiceClient } from './client.js';
 
 type Tables = Database['public']['Tables'];
@@ -30,6 +31,8 @@ export interface TenantContext {
   name: string;
   agentEnabled: boolean;
   activePromptVersionId: string | null;
+  /** IANA timezone name (`tenants.timezone`) — operating-hours evaluation. */
+  timezone: string;
 }
 
 export interface InsertMessageResult {
@@ -41,6 +44,16 @@ export interface InsertMessageResult {
 export interface TenantRepo {
   getOrCreateConversation(waId: string, profileName: string | null): Promise<ConversationRow>;
   getActivePromptVersion(): Promise<PromptVersionRow | null>;
+  /**
+   * The tenant's published agent_config parsed with AgentConfigSchema.
+   * Null when missing or invalid — callers treat that like "no active prompt
+   * version" (ws-r1 spec §1).
+   */
+  getPublishedConfig(): Promise<AgentConfig | null>;
+  /** Coexistence pause: set bot_paused + paused_until (ISO, or null = indefinite). */
+  setConversationPause(conversationId: string, pausedUntilIso: string | null): Promise<void>;
+  /** Lazy re-arm: clear bot_paused and paused_until. */
+  clearConversationPause(conversationId: string): Promise<void>;
   insertMessage(input: NewMessage): Promise<InsertMessageResult>;
   /** Last `limit` messages of the conversation, oldest → newest. */
   listRecentMessages(conversationId: string, limit: number): Promise<MessageRow[]>;
@@ -51,7 +64,10 @@ export interface TenantRepo {
     conversationId: string,
     patch: { lastMessageAt?: string; lastCustomerMessageAt?: string },
   ): Promise<void>;
-  /** Status webhooks: update wa_status if the message exists, else no-op. */
+  /**
+   * Status webhooks: update wa_status if the message exists AND the incoming
+   * status outranks the stored one (monotonic guard, ws-r1 spec §5), else no-op.
+   */
   updateMessageWaStatus(waMessageId: string, status: WaStatus): Promise<void>;
 }
 
@@ -159,6 +175,37 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
       return data;
     },
 
+    async getPublishedConfig() {
+      const { data, error } = await client
+        .from('agent_configs')
+        .select('config')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'published')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const result = validateAgentConfig(data.config);
+      return result.ok ? result.config : null;
+    },
+
+    async setConversationPause(conversationId, pausedUntilIso) {
+      const { error } = await client
+        .from('conversations')
+        .update({ bot_paused: true, paused_until: pausedUntilIso })
+        .eq('tenant_id', tenantId)
+        .eq('id', conversationId);
+      if (error) throw error;
+    },
+
+    async clearConversationPause(conversationId) {
+      const { error } = await client
+        .from('conversations')
+        .update({ bot_paused: false, paused_until: null })
+        .eq('tenant_id', tenantId)
+        .eq('id', conversationId);
+      if (error) throw error;
+    },
+
     async insertMessage(input) {
       const { data, error } = await client
         .from('messages')
@@ -224,11 +271,20 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
     },
 
     async updateMessageWaStatus(waMessageId, status) {
+      const { data: existing, error: selectError } = await client
+        .from('messages')
+        .select('id, wa_status')
+        .eq('tenant_id', tenantId)
+        .eq('wa_message_id', waMessageId)
+        .maybeSingle();
+      if (selectError) throw selectError;
+      if (!existing || !shouldRecordStatus(existing.wa_status, status)) return;
+
       const { error } = await client
         .from('messages')
         .update({ wa_status: status })
         .eq('tenant_id', tenantId)
-        .eq('wa_message_id', waMessageId);
+        .eq('id', existing.id);
       if (error) throw error;
     },
   };
@@ -241,7 +297,7 @@ export function createDb(opts: { url: string; serviceRoleKey: string }): Runtime
     async resolveTenantByPhoneNumberId(phoneNumberId) {
       const { data, error } = await client
         .from('tenants')
-        .select('id, name, agent_enabled, active_prompt_version_id')
+        .select('id, name, agent_enabled, active_prompt_version_id, timezone')
         .eq('wa_phone_number_id', phoneNumberId)
         .maybeSingle();
       if (error) throw error;
@@ -251,6 +307,7 @@ export function createDb(opts: { url: string; serviceRoleKey: string }): Runtime
         name: data.name,
         agentEnabled: data.agent_enabled,
         activePromptVersionId: data.active_prompt_version_id,
+        timezone: data.timezone,
       };
     },
 

@@ -22,6 +22,7 @@ function setup(overrides: Partial<AppDeps> = {}) {
       name: 'Moda Valentina',
       agentEnabled: true,
       activePromptVersionId: 'pv-1',
+      timezone: 'America/Bogota',
     },
     phoneNumberId: '111000111000111',
   });

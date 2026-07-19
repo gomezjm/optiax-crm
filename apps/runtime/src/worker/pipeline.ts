@@ -1,17 +1,29 @@
 /**
- * Per-webhook-event processing (spec §1): resolve tenant → dedupe → load
- * context → model reply → persist + send. Throwing here means "retry me" —
- * the worker's visibility-timeout/poison logic decides what happens next.
- * Terminal, non-retryable outcomes (unknown tenant, malformed payload) mark
- * the webhook_events row with an error and return normally so the queue drains.
+ * Per-webhook-event processing (phase-1 spec §1 + ws-r1). Resolve tenant →
+ * dedupe → coexistence/policy checks → model reply → persist + send. Throwing
+ * here means "retry me" — the worker's visibility-timeout/poison logic decides
+ * what happens next. Terminal, non-retryable outcomes (unknown tenant,
+ * malformed payload) mark the webhook_events row with an error and return
+ * normally so the queue drains.
+ *
+ * ws-r1 additions: owner-echo handling sets the coexistence pause; pause
+ * enforcement with lazy re-arm; operating hours; the 24h-window guard at the
+ * send; every deliberate skip records an agent_turn with an AgentSkipReason
+ * (when the tenant has an active prompt version — agent_turns.prompt_version_id
+ * is NOT NULL, so without one the skip is console-only, same as Phase 1).
  */
+import type { AgentConfig, AgentSkipReason } from '@optiax/shared';
 import type { RuntimeDb, TenantContext, TenantRepo } from '../db/index.js';
 import type { AgentModel } from '../model/types.js';
 import { toModelHistory } from '../model/history.js';
 import type { WaSender } from '../wa/sender.js';
-import { parseEnvelope, type InboundWaMessage } from '../wa/envelope.js';
+import { parseEnvelope, type EchoWaMessage, type InboundWaMessage } from '../wa/envelope.js';
+import { assertWithinWindow, OutsideWindowError } from '../wa/window.js';
+import { isAgentActive } from './operating-hours.js';
 
 export const HISTORY_LIMIT = 20;
+/** Fallback when the published config is missing/invalid (schema default). */
+export const DEFAULT_PAUSE_HOURS = 24;
 
 export interface PipelineDeps {
   db: RuntimeDb;
@@ -19,6 +31,9 @@ export interface PipelineDeps {
   sender: WaSender;
   log?: (message: string) => void;
 }
+
+/** Published config, loaded lazily and cached for this event only (ws-r1 §1). */
+type ConfigLoader = () => Promise<AgentConfig | null>;
 
 export async function processWebhookEvent(deps: PipelineDeps, webhookEventId: string): Promise<void> {
   const { db, log = console.log } = deps;
@@ -47,15 +62,73 @@ export async function processWebhookEvent(deps: PipelineDeps, webhookEventId: st
 
   const repo = db.createTenantRepo(tenant.id);
 
+  let configPromise: Promise<AgentConfig | null> | null = null;
+  const getConfig: ConfigLoader = () => (configPromise ??= repo.getPublishedConfig());
+
   for (const status of envelope.statuses) {
     await repo.updateMessageWaStatus(status.waMessageId, status.status);
   }
 
+  for (const echo of envelope.echoes) {
+    await handleEchoMessage(deps, repo, echo, getConfig);
+  }
+
   for (const message of envelope.messages) {
-    await handleInboundMessage(deps, tenant, repo, message);
+    await handleInboundMessage(deps, tenant, repo, message, getConfig);
   }
 
   await db.webhookEvents.markProcessed(webhookEventId);
+}
+
+/**
+ * Owner replied from the WhatsApp Business app (ws-r1 §2): persist the message
+ * (`outbound`/`owner_app`, idempotent on wa_message_id) and set/extend the
+ * coexistence pause. Echoes move `last_message_at` only — they never open the
+ * 24h window.
+ */
+async function handleEchoMessage(
+  deps: PipelineDeps,
+  repo: TenantRepo,
+  echo: EchoWaMessage,
+  getConfig: ConfigLoader,
+): Promise<void> {
+  const { log = console.log } = deps;
+
+  const conversation = await repo.getOrCreateConversation(echo.to, null);
+
+  const { message, wasDuplicate } = await repo.insertMessage({
+    conversation_id: conversation.id,
+    wa_message_id: echo.waMessageId,
+    direction: 'outbound',
+    source: 'owner_app',
+    type: echo.type,
+    body: echo.body,
+  });
+
+  if (!wasDuplicate) {
+    await repo.updateConversationTimestamps(conversation.id, { lastMessageAt: message.created_at });
+  } else if (conversation.bot_paused) {
+    // Redelivered echo and the pause is already set — nothing to extend.
+    return;
+  }
+  // wasDuplicate && !bot_paused falls through: retry after a mid-echo failure
+  // (message row landed, pause didn't) — finish the job.
+
+  if (conversation.bot_paused && conversation.paused_until === null) {
+    // Indefinite pause (manual dashboard toggle) — an echo must never shorten
+    // it to a finite window.
+    log(`[worker] owner echo on indefinitely-paused conv=${conversation.id} — pause untouched`);
+    return;
+  }
+
+  const config = await getConfig();
+  const pauseHours = config?.agent.pauseHoursOnOwnerReply ?? DEFAULT_PAUSE_HOURS;
+  if (!config) {
+    log(`[worker] no valid published config — pausing with default ${DEFAULT_PAUSE_HOURS}h`);
+  }
+  const pausedUntil = new Date(Date.now() + pauseHours * 3_600_000).toISOString();
+  await repo.setConversationPause(conversation.id, pausedUntil);
+  log(`[worker] owner echo → bot paused conv=${conversation.id} until ${pausedUntil}`);
 }
 
 async function handleInboundMessage(
@@ -63,6 +136,7 @@ async function handleInboundMessage(
   tenant: TenantContext,
   repo: TenantRepo,
   inbound: InboundWaMessage,
+  getConfig: ConfigLoader,
 ): Promise<void> {
   const { model, sender, log = console.log } = deps;
 
@@ -88,24 +162,20 @@ async function handleInboundMessage(
       lastMessageAt: message.created_at,
       lastCustomerMessageAt: message.created_at,
     });
+    // Keep the in-memory row consistent for the window guard below.
+    conversation.last_customer_message_at = message.created_at;
   }
 
-  // Flag checks only — R1 owns *setting* these flags (spec non-goals).
-  if (!tenant.agentEnabled || conversation.bot_paused) {
-    log(
-      `[worker] skip reply (${!tenant.agentEnabled ? 'agent_disabled' : 'bot_paused'}) conv=${conversation.id}`,
-    );
-    return;
-  }
-
+  // Skip turns reference the active prompt version (NOT NULL column); load it
+  // up front so every skip path below can record one.
   const promptVersion = await repo.getActivePromptVersion();
-  if (!promptVersion) {
-    log(`[worker] skip reply (no active prompt_version) tenant=${tenant.id}`);
-    return;
-  }
 
-  if (inbound.type === 'audio') {
-    // Audio: persist, no reply; transcription is an R2 workstream (spec non-goals).
+  const recordSkip = async (reason: AgentSkipReason): Promise<void> => {
+    log(`[worker] skip reply (${reason}) conv=${conversation.id}`);
+    if (!promptVersion) {
+      log(`[worker] no active prompt_version — skip turn not recorded (${reason})`);
+      return;
+    }
     await repo.insertAgentTurn({
       conversation_id: conversation.id,
       message_id: message.id,
@@ -115,8 +185,58 @@ async function handleInboundMessage(
       input_tokens: 0,
       output_tokens: 0,
       tool_calls: [],
-      error: { reason: 'audio_not_supported' },
+      error: { reason },
     });
+  };
+
+  if (!tenant.agentEnabled) {
+    await recordSkip('agent_disabled');
+    return;
+  }
+
+  // Coexistence pause (ws-r1 §2): paused_until NULL = indefinite; an expired
+  // pause is cleared lazily here — no cron.
+  if (conversation.bot_paused) {
+    const expired =
+      conversation.paused_until !== null && Date.parse(conversation.paused_until) <= Date.now();
+    if (!expired) {
+      await recordSkip('bot_paused');
+      return;
+    }
+    await repo.clearConversationPause(conversation.id);
+    log(`[worker] pause expired → re-armed conv=${conversation.id}`);
+  }
+
+  if (!promptVersion) {
+    log(`[worker] skip reply (no active prompt_version) tenant=${tenant.id}`);
+    return;
+  }
+
+  // Missing/invalid published config is treated like "no active prompt
+  // version" (ws-r1 §1) — tenant-misconfig UX is out of scope.
+  const config = await getConfig();
+  if (!config) {
+    log(`[worker] no valid published agent_config tenant=${tenant.id}`);
+    await recordSkip('no_active_prompt');
+    return;
+  }
+
+  let active: boolean;
+  try {
+    active = isAgentActive(config.agent, tenant.timezone);
+  } catch (err) {
+    // Bad tenant timezone — fail open (reply anyway) rather than poison the queue.
+    log(`[worker] operating-hours evaluation failed (${String(err)}) — treating agent as active`);
+    active = true;
+  }
+  if (!active) {
+    await recordSkip('outside_operating_hours');
+    return;
+  }
+
+  if (inbound.type === 'audio') {
+    // Audio: persist, no reply; transcription is an R2 workstream (spec non-goals).
+    await recordSkip('audio_not_supported');
     return;
   }
 
@@ -125,6 +245,19 @@ async function handleInboundMessage(
     systemPrompt: promptVersion.compiled_prompt,
     history,
   });
+
+  // Central 24h-window guard (ws-r1 §3). Inbound-triggered replies trivially
+  // pass — the guard exists so every future send path inherits enforcement.
+  try {
+    assertWithinWindow(conversation);
+  } catch (err) {
+    if (err instanceof OutsideWindowError) {
+      log(`[worker] BLOCKED SEND — ${err.message}`);
+      await recordSkip('outside_24h_window');
+      return;
+    }
+    throw err;
+  }
 
   const sent = await sender.sendText(conversation.wa_id, reply.text);
 

@@ -3,7 +3,7 @@
  * Implements exactly the surface the pipeline/worker touch.
  */
 import { randomUUID } from 'node:crypto';
-import type { Json } from '@optiax/shared';
+import { validateAgentConfig, type AgentConfig, type Json } from '@optiax/shared';
 import type {
   ConversationRow,
   MessageRow,
@@ -15,11 +15,46 @@ import type {
   TenantContext,
   WebhookEventRow,
 } from '../src/db/index.js';
+import { shouldRecordStatus } from '../src/wa/status-rank.js';
 
 export interface FakeTenantSeed {
   tenant: TenantContext;
   phoneNumberId: string;
   promptVersion?: Partial<PromptVersionRow> | null;
+  /** Published agent_config; defaults to a minimal valid config. Null = none published. */
+  config?: AgentConfig | null;
+}
+
+/** Minimal valid AgentConfig for unit tests; override per-test as needed. */
+export function makeAgentConfig(
+  agent: Partial<AgentConfig['agent']> = {},
+): AgentConfig {
+  const result = validateAgentConfig({
+    version: 1,
+    business: { name: 'Moda Valentina', description: 'Boutique de ropa.', vertical: 'retail' },
+    agent: {
+      displayName: 'Vale',
+      tone: 'cercano',
+      language: 'es',
+      emojiUsage: 'light',
+      audioPolicy: 'transcribe',
+      operatingMode: 'always',
+      pauseHoursOnOwnerReply: 24,
+      ...agent,
+    },
+    catalog: { canQuotePrices: true, offerPromos: false, outOfStock: 'say_unavailable' },
+    orders: {
+      enabled: false,
+      confirmBeforeCreate: true,
+      collectDelivery: false,
+      sharePaymentMethods: false,
+    },
+    escalation: { rules: [], handoffMessage: 'Te paso con el equipo.' },
+  });
+  if (!result.ok) {
+    throw new Error(`makeAgentConfig produced an invalid config: ${JSON.stringify(result.errors)}`);
+  }
+  return result.config;
 }
 
 interface StoredAgentTurn extends NewAgentTurn {
@@ -27,7 +62,10 @@ interface StoredAgentTurn extends NewAgentTurn {
 }
 
 export class FakeDb implements RuntimeDb {
-  tenants = new Map<string, { tenant: TenantContext; promptVersion: PromptVersionRow | null }>();
+  tenants = new Map<
+    string,
+    { tenant: TenantContext; promptVersion: PromptVersionRow | null; config: AgentConfig | null }
+  >();
   conversations: ConversationRow[] = [];
   messages: MessageRow[] = [];
   agentTurns: StoredAgentTurn[] = [];
@@ -35,7 +73,10 @@ export class FakeDb implements RuntimeDb {
   queueMessages: QueueMessage[] = [];
   archived: number[] = [];
   private nextMsgId = 1;
-  private clock = Date.parse('2026-07-18T12:00:00Z');
+  // Anchored to the real clock: the pipeline's 24h-window guard compares
+  // row timestamps against real `Date.now()`, so a fixed past date would
+  // start failing once it drifted >24h behind.
+  private clock = Date.now();
 
   addTenant(seed: FakeTenantSeed): void {
     const promptVersion =
@@ -51,7 +92,11 @@ export class FakeDb implements RuntimeDb {
             created_at: this.now(),
             ...seed.promptVersion,
           } as PromptVersionRow);
-    this.tenants.set(seed.phoneNumberId, { tenant: seed.tenant, promptVersion });
+    this.tenants.set(seed.phoneNumberId, {
+      tenant: seed.tenant,
+      promptVersion,
+      config: seed.config === undefined ? makeAgentConfig() : seed.config,
+    });
   }
 
   addConversation(partial: Partial<ConversationRow> & { tenant_id: string; wa_id: string }): ConversationRow {
@@ -116,6 +161,29 @@ export class FakeDb implements RuntimeDb {
       },
       getActivePromptVersion() {
         return Promise.resolve(entry?.promptVersion ?? null);
+      },
+      getPublishedConfig() {
+        return Promise.resolve(entry?.config ?? null);
+      },
+      setConversationPause(conversationId: string, pausedUntilIso: string | null) {
+        const conversation = db.conversations.find(
+          (c) => c.tenant_id === tenantId && c.id === conversationId,
+        );
+        if (conversation) {
+          conversation.bot_paused = true;
+          conversation.paused_until = pausedUntilIso;
+        }
+        return Promise.resolve();
+      },
+      clearConversationPause(conversationId: string) {
+        const conversation = db.conversations.find(
+          (c) => c.tenant_id === tenantId && c.id === conversationId,
+        );
+        if (conversation) {
+          conversation.bot_paused = false;
+          conversation.paused_until = null;
+        }
+        return Promise.resolve();
       },
       insertMessage(input: NewMessage) {
         if (input.wa_message_id) {
@@ -183,7 +251,9 @@ export class FakeDb implements RuntimeDb {
         const message = db.messages.find(
           (m) => m.tenant_id === tenantId && m.wa_message_id === waMessageId,
         );
-        if (message) message.wa_status = status;
+        if (message && shouldRecordStatus(message.wa_status, status)) {
+          message.wa_status = status;
+        }
         return Promise.resolve();
       },
     };

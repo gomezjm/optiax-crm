@@ -33,6 +33,12 @@ export {
 
 export { AutoReplyTriggerSchema, type AutoReplyTrigger } from './schemas/auto-reply.js';
 
+export {
+  AGENT_SKIP_REASONS,
+  AgentSkipReasonSchema,
+  type AgentSkipReason,
+} from './schemas/agent-skip-reason.js';
+
 export { compilePrompt, type CompileResult } from './compiler/compile-prompt.js';
 export { VERTICAL_TEMPLATES, resolveVertical } from './compiler/verticals.js';
 

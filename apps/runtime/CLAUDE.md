@@ -23,5 +23,10 @@ the (mock) WhatsApp sender.
 - Don't redeclare DB row types or config schemas here.
 - Don't import `@supabase/supabase-js` outside `src/db/` (CI fails).
 - Don't put per-message logic in Supabase Edge Functions; it lives here.
-- Don't add pause-setting/24h-gating/tools/audio-transcription logic — those
-  are R1/R2 workstreams. This phase only *checks* `bot_paused`/`agent_enabled`.
+- Don't add agent tools or audio transcription — R2 workstreams. Coexistence
+  pause, 24h-window gating, and operating hours are implemented here since R1
+  (`src/worker/pipeline.ts`, `src/wa/window.ts`, `src/worker/operating-hours.ts`).
+- Don't scatter window checks: every outbound send goes through
+  `assertWithinWindow` right before the `WaSender` call.
+- Don't let echo-payload shape knowledge leave `src/wa/envelope.ts` — the echo
+  fixture is a reconstruction pending captured payloads.

@@ -34,11 +34,27 @@ export interface WaStatusUpdate {
   status: WaStatus;
 }
 
+/**
+ * An owner message sent from the WhatsApp Business app, echoed to us via a
+ * `smb_message_echoes` change (coexistence). Shape is a best-effort
+ * reconstruction from Meta docs — the sandbox cannot emit echoes
+ * (fixtures/README.md); every extracted path is flagged in SESSION_NOTES.md.
+ */
+export interface EchoWaMessage {
+  waMessageId: string;
+  /** Customer wa_id the owner wrote to — the conversation key. */
+  to: string;
+  type: MsgType;
+  /** text body or media caption, same extraction as inbound messages */
+  body: string | null;
+}
+
 export interface ParsedEnvelope {
   phoneNumberId: string | null;
   field: string | null;
   messages: InboundWaMessage[];
   statuses: WaStatusUpdate[];
+  echoes: EchoWaMessage[];
 }
 
 const INBOUND_TYPES: readonly MsgType[] = ['text', 'image', 'audio', 'video', 'document'];
@@ -67,7 +83,13 @@ function extractBody(message: Record<string, unknown>, type: MsgType): string | 
 }
 
 export function parseEnvelope(payload: unknown): ParsedEnvelope {
-  const parsed: ParsedEnvelope = { phoneNumberId: null, field: null, messages: [], statuses: [] };
+  const parsed: ParsedEnvelope = {
+    phoneNumberId: null,
+    field: null,
+    messages: [],
+    statuses: [],
+    echoes: [],
+  };
   if (!isRecord(payload) || !Array.isArray(payload['entry'])) return parsed;
 
   for (const entry of payload['entry']) {
@@ -106,6 +128,22 @@ export function parseEnvelope(payload: unknown): ParsedEnvelope {
             body: extractBody(message, type),
             profileName: profileByWaId.get(from) ?? null,
           });
+        }
+      }
+
+      // Reconstruction: echoes arrive under `value.message_echoes` in
+      // `smb_message_echoes` changes, each `{ from, to, id, timestamp, type,
+      // text: { body } }` — `from` is the business number (redundant with
+      // metadata.phone_number_id), `to` is the customer. Real payloads likely
+      // also carry `from_user_id`-style fields; ignored like everywhere else.
+      if (Array.isArray(value['message_echoes'])) {
+        for (const echo of value['message_echoes']) {
+          if (!isRecord(echo)) continue;
+          const waMessageId = asString(echo['id']);
+          const to = asString(echo['to']);
+          if (!waMessageId || !to) continue;
+          const type = toMsgType(echo['type']);
+          parsed.echoes.push({ waMessageId, to, type, body: extractBody(echo, type) });
         }
       }
 

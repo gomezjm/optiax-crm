@@ -40,6 +40,28 @@ describe('parseEnvelope', () => {
     expect(typeof parsed.messages[0]?.body).toBe('string');
   });
 
+  it('parses echo-owner-reply: owner message under echoes, not messages', () => {
+    const parsed = parseEnvelope(fixture('echo-owner-reply'));
+    expect(parsed.phoneNumberId).toBe('111000111000111');
+    expect(parsed.field).toBe('smb_message_echoes');
+    expect(parsed.messages).toEqual([]);
+    expect(parsed.statuses).toEqual([]);
+    expect(parsed.echoes).toHaveLength(1);
+    const echo = parsed.echoes[0];
+    expect(echo?.to).toBe('573015550101');
+    expect(echo?.type).toBe('text');
+    expect(echo?.body).toContain('Valentina');
+    expect(echo?.waMessageId).toMatch(/^wamid\./);
+  });
+
+  it('history-sync: nothing extracted (threads nest under value.history, not value.messages)', () => {
+    const parsed = parseEnvelope(fixture('history-sync'));
+    expect(parsed.phoneNumberId).toBe('222000222000222');
+    expect(parsed.messages).toEqual([]);
+    expect(parsed.statuses).toEqual([]);
+    expect(parsed.echoes).toEqual([]);
+  });
+
   it('parses status updates', () => {
     for (const [name, status] of [
       ['status-sent', 'sent'],
@@ -60,6 +82,7 @@ describe('parseEnvelope', () => {
       expect(parsed.phoneNumberId).toBeNull();
       expect(parsed.messages).toEqual([]);
       expect(parsed.statuses).toEqual([]);
+      expect(parsed.echoes).toEqual([]);
     }
   });
 });
