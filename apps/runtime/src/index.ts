@@ -25,7 +25,19 @@ if (env.geminiApiKey) {
 }
 
 const sender = createWaSender(env.waSender);
-const app = createApp({ db, ...(env.webhookSecret ? { webhookSecret: env.webhookSecret } : {}) });
+const app = createApp({
+  db,
+  webhookVerify: env.webhookVerify,
+  ...(env.webhookSecret ? { webhookSecret: env.webhookSecret } : {}),
+});
+if (env.webhookVerify !== 'stub') {
+  console.warn(
+    `[runtime] WEBHOOK_VERIFY=${env.webhookVerify} — accepting unsigned webhooks` +
+      (env.webhookVerify === '360dialog'
+        ? ' (sandbox-confirmed: 360dialog does not sign; secure the URL at the edge)'
+        : ''),
+  );
+}
 
 serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.log(`[runtime] listening on http://localhost:${info.port}`);

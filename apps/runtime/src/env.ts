@@ -44,12 +44,29 @@ function loadDotenvFiles(): void {
   }
 }
 
+/**
+ * How POST /webhooks/wa authenticates requests:
+ *  - 'stub'      — require the local HMAC `x-webhook-signature` (what
+ *                  `pnpm simulate` and the test suites send). Default.
+ *  - '360dialog' — captured sandbox reality (captures/360dialog/, 2026-07-19):
+ *                  deliveries carry NO signature header; authentication is the
+ *                  secret webhook URL (+ Basic auth/custom headers configured at
+ *                  registration, enforced at the edge, not here). Accepts
+ *                  unsigned requests. TODO(Phase 4): confirm against production
+ *                  deliveries (possibly Meta-style X-Hub-Signature-256).
+ *  - 'off'       — explicit no-verification escape hatch.
+ */
+export type WebhookVerifyMode = 'stub' | '360dialog' | 'off';
+
+const WEBHOOK_VERIFY_MODES: readonly WebhookVerifyMode[] = ['stub', '360dialog', 'off'];
+
 export interface RuntimeEnv {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
   geminiApiKey: string | null;
   geminiModelId: string;
   webhookSecret: string | null;
+  webhookVerify: WebhookVerifyMode;
   waSender: 'mock' | '360dialog';
   port: number;
 }
@@ -60,12 +77,19 @@ export function loadEnv(): RuntimeEnv {
   if (waSender !== 'mock' && waSender !== '360dialog') {
     throw new Error(`WA_SENDER must be "mock" or "360dialog", got "${waSender}"`);
   }
+  const webhookVerify = (process.env.WEBHOOK_VERIFY ?? 'stub') as WebhookVerifyMode;
+  if (!WEBHOOK_VERIFY_MODES.includes(webhookVerify)) {
+    throw new Error(
+      `WEBHOOK_VERIFY must be one of ${WEBHOOK_VERIFY_MODES.join(', ')}, got "${webhookVerify}"`,
+    );
+  }
   return {
     supabaseUrl: process.env.SUPABASE_URL ?? LOCAL_SUPABASE_URL,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? LOCAL_SERVICE_ROLE_KEY,
     geminiApiKey: process.env.GEMINI_API_KEY ?? null,
     geminiModelId: process.env.GEMINI_MODEL_ID ?? 'gemini-2.5-flash',
     webhookSecret: process.env.WEBHOOK_SECRET ?? null,
+    webhookVerify,
     waSender,
     port: Number(process.env.PORT ?? 8787),
   };

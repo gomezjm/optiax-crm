@@ -2,8 +2,17 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 /**
  * STUB signing scheme (spec §7): HMAC-SHA256 over the raw body, hex-encoded,
- * sent as `x-webhook-signature`. The real 360dialog scheme is unconfirmed —
- * when it is, swap the internals of these two functions and nothing else.
+ * sent as `x-webhook-signature`. Used by `pnpm simulate` and the runtime's
+ * default `WEBHOOK_VERIFY=stub` mode.
+ *
+ * Captured sandbox reality (2026-07-19, captures/360dialog/): 360dialog does
+ * NOT sign deliveries — no signature header at all. Authentication is the
+ * secret webhook URL, plus Basic auth/custom headers configured at
+ * registration (forwarded verbatim; confirmed by probe). This stub is
+ * therefore a local-dev convention, not an emulation of 360dialog.
+ * TODO(Phase 4): confirm the production scheme (possibly Meta-style
+ * `X-Hub-Signature-256`) and, if one exists, swap the internals of these two
+ * functions and nothing else.
  */
 
 const DEFAULT_DEV_SECRET = 'optiax-dev-webhook-secret';

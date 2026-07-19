@@ -5,7 +5,6 @@
       "id": "2000000000000002",
       "changes": [
         {
-          "field": "messages",
           "value": {
             "messaging_product": "whatsapp",
             "metadata": {
@@ -15,24 +14,27 @@
             "contacts": [
               {
                 "profile": { "name": "Andrés Pardo" },
-                "wa_id": "573125550202"
+                "wa_id": "573125550202",
+                "user_id": "CO.2000000000000202"
               }
             ],
             "messages": [
               {
                 "from": "573125550202",
+                "from_user_id": "CO.2000000000000202",
                 "id": "wamid.HBgMNTczMTI1NTUwMjAyFQIAEhggQjEwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAA",
                 "timestamp": "1752862800",
-                "type": "audio",
                 "audio": {
                   "id": "media.5000000000000002",
                   "mime_type": "audio/ogg; codecs=opus",
                   "sha256": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
                   "voice": true
-                }
+                },
+                "type": "audio"
               }
             ]
-          }
+          },
+          "field": "messages"
         }
       ]
     }

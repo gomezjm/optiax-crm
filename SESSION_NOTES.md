@@ -1,177 +1,142 @@
-# Phase 1 — Session notes (walking skeleton)
+# Fixture-capture correction — Session notes (2026-07-19)
 
-Spec: `docs/specs/phase-1-walking-skeleton.md`. Phase 0 notes moved to
-`docs/session-notes/phase-0.md` (all 31 decisions ratified in phase-0 spec §11).
+Brief: make fixtures, `envelope.ts`, and signature verification match the real
+360dialog **sandbox** deliveries captured in `captures/360dialog/` (7 files,
+gitignored: 1 inbound text, 2×sent, 2×delivered, 2×read; runbook
+`docs/runbooks/capture-360dialog-webhook.md`). Phase 1 notes moved to
+`docs/session-notes/phase-1.md` (same convention as Phase 0).
 
-**Status: every §8 DoD box checked, verified live** — full flow ran with real
-Gemini locally (`gemini-2.5-flash`, key from `apps/runtime/.env.local`), dedupe
-proven (two POSTs → one reply), unknown `phone_number_id` drains with a logged
-error, `pnpm typecheck` / `pnpm test` (52) / `pnpm db:test` (221 isolation + 5
-integration) all green, import restrictions enforced, `es.json` holds every UI
-string, and RLS-scoped Realtime delivery was verified headlessly against the
-live stack (signed-in tenant admin received both INSERT events).
+**Status: done.** Fixtures corrected against captures, `envelope.ts` provenance
+updated (no logic change needed — see decision 3), signature reality documented
+and made explicit via `WEBHOOK_VERIFY`, all suites green
+(`pnpm typecheck` ✓, `pnpm test` 29+unit-shared ✓, `pnpm db:test` 221+5 ✓),
+`pnpm simulate inbound-text` verified live end-to-end (real Gemini reply,
+mock send), and `WEBHOOK_VERIFY=360dialog` verified live to accept the unsigned
+POST shape 360dialog actually sends.
 
-## Assumptions & deviations (numbered, same convention as Phase 0)
+## Diff table: captured vs reconstructed fixtures
 
-1. **`src/db/` exports more than the spec's "exactly two things."** Besides
-   `resolveTenantByPhoneNumberId` and `createTenantRepo`, the `createDb()`
-   surface exposes `webhookEvents` (insert/get/markProcessed/markError — the
-   table is tenant-nullable by design, so it can't live behind a tenant repo)
-   and `queue` (pgmq send/read/archive — not a tenant table). Without these the
-   webhook route and worker cannot exist. The invariant that matters — the raw
-   service client never leaves `src/db/` — holds, and is doubly enforced
-   (eslint `no-restricted-imports` + `test/import-restriction.test.ts`).
-2. **`createDb(opts)` is a factory, not module-level singletons** — the two
-   spec'd functions are methods on its return value. Chosen for testability
-   (integration tests build their own instance); `src/index.ts` builds exactly
-   one.
-3. **pgmq is reached through `public.wa_inbound_send/read/archive` RPC
-   wrappers** (migration `20260718000700`): PostgREST doesn't expose the `pgmq`
-   schema. `security definer`, EXECUTE revoked from anon/authenticated, granted
-   to `service_role` only. Same migration adds `messages` to the
-   `supabase_realtime` publication (the one expected schema change).
-4. **Retry vs dedupe interaction**: a bare "wasDuplicate → skip" would break
-   retries — if Gemini fails *after* the inbound row is inserted, every retry
-   would see a duplicate and the customer would never get a reply, defeating
-   the visibility-timeout retry. On `wasDuplicate` the pipeline checks
-   `hasOutboundReplyAfter(conversation, inbound.created_at)`: reply exists →
-   true duplicate delivery, skip; no reply → resume the half-done job. Unit +
-   integration tests cover both directions.
-5. **Meta envelope parsing lives in `apps/runtime/src/wa/envelope.ts`**, not
-   `packages/shared`. Rationale: only the runtime parses webhooks, the brief
-   said not to touch shared schemas, and the fixtures are reconstructions
-   pending captured payloads. Flagged to graduate to shared once real payloads
-   confirm the shape. (Not a redeclaration — these types exist nowhere else.)
-6. **History mapping for sources the spec didn't list**: `campaign` →
-   `assistant` (outbound business content), `system` → skipped (internal
-   notices like "Pedido creado…" aren't conversation turns). `template` bodies
-   are treated as text.
-7. **Non-text non-audio messages (e.g. image) DO get a reply** — the spec only
-   exempts audio. The model sees `[imagen] <caption>` placeholder lines.
-8. **Audio skip is recorded as an `agent_turn`** with `model: 'none'`, zero
-   tokens, `error: { reason: 'audio_not_supported' }`, `message_id` = the
-   inbound audio row (spec: "log a skip reason in `agent_turns.error`"). If the
-   tenant has no active prompt version the turn can't be written
-   (`prompt_version_id` is NOT NULL) — logged to console and skipped.
-9. **No active `prompt_version` → persist inbound, skip reply, console log.**
-   Not treated as a poison/failure case; R-phases own tenant-misconfiguration
-   UX.
-10. **Statuses are best-effort per spec**: `wa_status` updated iff a message
-    with that `wa_message_id` exists in-tenant; unknown ids ignored silently.
-    No ordering guard (a late `delivered` can overwrite `read`) — fine for the
-    skeleton, noted for R1.
-11. **Missing/garbled envelope (`no phone_number_id`)** → `webhook_events.error
-    = { reason: 'no_phone_number_id' }`, archived, queue drains — same terminal
-    treatment as unknown tenant.
-12. **Terminal failures keep `processed_at` NULL** and set `error` instead;
-    success sets `processed_at` and leaves `error` NULL. So: processed ⇒ ok,
-    error ⇒ terminal failure, neither ⇒ pending/in-retry.
-13. **Poison guard counts pgmq `read_ct`** (delivery attempts), archives after
-    the 3rd failed read and records `{ reason: 'poison_message', read_ct,
-    error }` on the event row. Malformed queue payloads (no
-    `webhook_event_id`) are archived on first sight.
-14. **Runtime test split**: unit tests (FakeModel + in-memory `FakeDb`) run in
-    `pnpm test` — CI's unit job has no DB. DB-backed integration tests run via
-    `pnpm db:test` (root script now appends `test:integration`), so CI's db job
-    covers them. The spec's "unit" items needing a DB (tenant resolution,
-    dedupe against real constraints) live in the integration suite.
-15. **Integration tests create their own service client for assertions** — the
-    supabase-js ban is scoped to `src/**` (shipped code). Tests must inspect
-    tables the repository deliberately doesn't expose.
-16. **Local-dev fallbacks**: with no `.env.local` the runtime defaults to the
-    local `supabase start` URL + well-known supabase-demo service key (same
-    convention as `scripts/seed-auth.ts`); with no `GEMINI_API_KEY` it boots
-    with `FakeModel` and a loud warning instead of crashing. Deploys must set
-    everything explicitly.
-17. **`GEMINI_MODEL_ID` defaults to `gemini-2.5-flash`** (current stable Flash
-    on the v1 API as of this session; `@google/genai` SDK v2.12.0). Override
-    via env. Retry: one, on 5xx/abort, 250–750 ms jitter; 30 s hard deadline
-    per attempt via `AbortController`.
-18. **Dashboard moved to `src/` layout** (`src/app`, `src/lib`, `src/i18n`) to
-    match the spec's `apps/dashboard/src/i18n/es.json` path; Next.js supports
-    both, middleware sits at `src/middleware.ts`.
-19. **`@supabase/ssr` added** for cookie-based auth in App Router — it's the
-    official Supabase client helper (allowed under "Supabase clients"); all
-    imports of it are fenced into `src/lib/supabase/`.
-20. **Inbox snippet strategy**: one extra query for the last ~200 messages of
-    the listed conversations, first-per-conversation wins. Avoids N+1 without
-    a view/RPC; revisit in D1 if lists grow.
-21. **Realtime subscription races on brand-new subscriptions**: an INSERT
-    landing within ~1–2 s of `SUBSCRIBED` can be missed (server-side
-    subscription settle). Irrelevant for the long-lived inbox subscription;
-    worth remembering when writing E2E UI tests.
-22. **`seed.sql` untouched; no new tables** — meta-test allowlist unchanged,
-    now also asserts every public table grants ≥ SELECT to `authenticated`
-    (spec §6 extension).
-23. **`pnpm simulate` now defaults to `/webhooks/wa`** (spec §1 route replaces
-    Phase 0's `/webhook` stub).
-24. **Phase 0 `SESSION_NOTES.md` moved** to `docs/session-notes/phase-0.md` so
-    this file can be the Phase 1 handoff (content unchanged).
+Verdicts: **confirmed** (reconstruction already matched), **corrected**
+(fixture changed to match capture), **still-unverified** (sandbox could not
+produce it). Identity values (`phone_number_id`, phones, wamids, `entry[].id`,
+`user_id`s, `conversation.id`s) are swapped to seed-tenant synthetics in
+fixtures per the standing rule; the *formats* below refer to captured reality.
 
-## Demo script (for Juan)
+### Inbound `messages` (capture 008 vs `inbound-text.json`)
 
-Terminal 1 — stack + data:
+| Field | Verdict | Notes |
+|---|---|---|
+| `object` | confirmed | `"whatsapp_business_account"` |
+| `entry[].id` | confirmed | numeric-string WABA id |
+| `entry[].changes[].field` | confirmed | `"messages"` |
+| `value.messaging_product` | confirmed | `"whatsapp"` |
+| `value.metadata.display_phone_number` / `.phone_number_id` | confirmed | both numeric strings |
+| `contacts[].profile.name` | confirmed | present on inbound messages |
+| `contacts[].wa_id` | confirmed | equals `messages[].from` |
+| `contacts[].user_id` | **corrected** (added) | new field, country-prefixed (`"VE.1470891188060290"`); fixtures use synthetic `CO.*` |
+| `messages[].from` | confirmed | E.164 without `+` |
+| `messages[].from_user_id` | **corrected** (added) | new field, mirrors contact `user_id` |
+| `messages[].id` | confirmed | `wamid.…` |
+| `messages[].timestamp` | confirmed | epoch-seconds string |
+| `messages[].text.body` | confirmed | |
+| `messages[].type` | confirmed | `"text"` |
 
-```bash
-pnpm i
-supabase start
-supabase db reset          # migrations (incl. new #7) + seed.sql
-pnpm seed:auth             # auth users + compiled prompt_versions
-```
+### `statuses` — sent / delivered / read (captures 002–007 vs `status-*.json`)
 
-Terminal 2 — runtime (real Gemini):
+| Field | Verdict | Notes |
+|---|---|---|
+| `value.contacts` on status deliveries | **corrected** (added) | statuses DO carry `contacts: [{ wa_id, user_id }]` — no `profile`; reconstructions omitted the array entirely |
+| `statuses[].id` / `.status` / `.timestamp` / `.recipient_id` | confirmed | |
+| `statuses[].recipient_user_id` | **corrected** (added) | new field |
+| `statuses[].conversation.id` | **corrected** | 32-char hex string, not a `conv.*` slug |
+| `statuses[].conversation.expiration_timestamp` | **corrected** | present on `sent` only; sandbox quirk: equals `timestamp` (not +24h) — do not build logic on its value |
+| `statuses[].conversation.origin.type` | confirmed | `"service"` |
+| `statuses[].pricing` | **corrected** | `{ billable: false, pricing_model: "PMP", category: "service", type: "free_customer_service" }`; we had invented `CBP`/`billable: true`/no `type` key |
+| `read` carrying `conversation` + `pricing` | **corrected** | our `status-read.json` had omitted both; real `read` looks like `delivered` |
+| `sent` fixture existence | **corrected** (added `status-sent.json`) | captured event type we had no fixture for; the only one showing `expiration_timestamp` |
 
-```bash
-# apps/runtime/.env.local must contain: GEMINI_API_KEY=<real key>
-pnpm --filter @optiax/runtime dev
-# expect: "[runtime] model: gemini-2.5-flash" and "[worker] polling wa_inbound"
-```
+### Still-unverified
 
-Terminal 3 — dashboard:
+| Item | Why | Standing |
+|---|---|---|
+| `inbound-image.json` / `inbound-audio.json` media objects | only a text message was captured | envelope aligned with captures (`user_id`/`from_user_id`, key placement); `image`/`audio` objects remain Meta-docs reconstructions |
+| `status-failed.json` `errors[]` | sandbox produced no failure | status envelope aligned with captured sent/delivered/read; `errors[]` + absence of `conversation`/`pricing` unverified |
+| `accepted` status value | never delivered by sandbox (it's our own optimistic initial `wa_status`) | fine — it originates from our sender, not webhooks |
+| `echo-owner-reply.json`, `history-sync.json` | coexistence-only; sandbox cannot emit them | untouched reconstructions per brief. Structural implication noted: every captured contact/message carried `user_id`/`from_user_id`, so real echo/history payloads likely do too — treat those fields as optional everywhere; re-verify at coexistence onboarding (runbook, last section) |
+| Production transport | sandbox is the On-Premise surface (`waba-sandbox.360dialog.io/v1`) | Phase 4 TODO below |
 
-```bash
-# apps/dashboard/.env.local: NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY from `supabase start`
-pnpm --filter @optiax/dashboard dev
-```
+## Signature reality (task 4)
 
-Browser: `http://localhost:3000` → redirected to `/login` → sign in as
-`admin@modavalentina.test` / `password123` → `/inbox` shows the two seeded
-Moda Valentina conversations; select **Camila Rojas** (top).
+**360dialog does not sign sandbox deliveries.** All 6 non-probe captures carry
+**no signature header of any kind** (headers are: CF tunnel headers, Sentry
+traces, `user-agent: python-httpx/0.28.1`, `content-type: application/json`).
+The auth probe confirmed the actual model: Basic auth embedded in the
+registered URL arrives as `Authorization: Basic …`, and custom headers
+configured at registration are forwarded verbatim. Security = possession of the
+secret webhook URL + optional Basic auth/custom headers, enforced at the edge.
 
-Terminal 4 — fire the webhook:
+Implementation (per brief's unsigned branch):
 
-```bash
-pnpm simulate inbound-text
-```
+- HMAC stub in `packages/shared/src/webhook-signature.ts` **kept** for
+  `pnpm simulate` + tests; header comment now documents captured reality.
+- `WEBHOOK_VERIFY=stub|360dialog|off` (default `stub`) added to
+  `apps/runtime/src/env.ts`; `createApp` takes `webhookVerify` and only
+  enforces the stub HMAC in `stub` mode. `360dialog` and `off` accept unsigned
+  requests (behaviorally identical today; the value documents intent, and
+  `360dialog` logs a loud boot warning to secure the URL at the edge).
+- **TODO(Phase 4)** (logged in `env.ts`, `app.ts`, `webhook-signature.ts`,
+  fixtures README): confirm production/Cloud-API deliveries — possibly
+  Meta-style `X-Hub-Signature-256` — and implement real verification behind
+  `signWebhookPayload`/`verifyWebhookSignature` if a scheme exists.
 
-Observe, in order:
+## Decisions (numbered)
 
-1. Terminal 2: `[webhook] event … queued (tenant=Moda Valentina)`, then
-   `[wa:mock] → 573015550101: <real Gemini reply in Spanish>`.
-2. Studio (`http://127.0.0.1:54323`): new rows in `messages` (inbound +
-   outbound `source=bot`), `agent_turns` (model/latency/tokens),
-   `webhook_events.processed_at` set.
-3. Browser: both messages appear **live** in the open thread — no refresh.
-
-Then prove dedupe: run `pnpm simulate inbound-text` again → runtime logs a
-processed event but **no** second `[wa:mock]` send, no new rows. And the
-failure path: `pnpm simulate inbound-audio` persists the voice note with an
-`agent_turns.error = audio_not_supported` and no reply.
-
-Checks: `pnpm typecheck && pnpm test && pnpm db:test` (db:test = isolation
-suite + runtime integration suite; needs the Terminal 1 steps done).
+1. **Identity-swap scope**: kept every pre-existing seed identity (wamids,
+   phones, `entry[].id`) so `pipeline.test.ts` / `flow.test.ts` hardcoded ids
+   keep matching; added synthetic `CO.*` `user_id`s (mirroring the captured
+   country-prefixed `VE.*` format) and 32-hex `conversation.id`s. Nothing else
+   about the captured structure altered — including JSON key order (`value`
+   before `field`, `type` last in messages).
+2. **`status-sent.json` added** as captured-verified — a captured event type
+   with no fixture, and the only carrier of `conversation.expiration_timestamp`.
+   Not feature work: R1's status-ordering work will need it.
+3. **`parseEnvelope` needed zero logic changes** — every path it extracts
+   (`metadata.phone_number_id`, `field`, `messages[].{id,from,type,text.body}`,
+   `contacts[].{wa_id,profile.name}`, `statuses[].{id,status}`) exists verbatim
+   in the captures, and the new fields (`user_id`/`from_user_id`/
+   `recipient_user_id`, `conversation`, `pricing`) are ones the Phase 1
+   pipeline deliberately ignores. The header comment now records the
+   captured-verified provenance instead of "reconstructions pending capture".
+4. **Envelope graduation refinement (P1-Q2)**: parser stays runtime-local;
+   graduation to `packages/shared` stays deferred **until the echo
+   (`smb_message_echoes`) shape is also captured-verified** — the fixture task
+   has now "landed" but only partially confirms shapes, so the original
+   trigger is refined rather than fired.
+5. **Partially-verified fixtures get the envelope corrections**: `inbound-image`,
+   `inbound-audio`, `status-failed` share the captured envelope families, so
+   their common fields were aligned; only their payload objects
+   (`image`/`audio`/`errors[]`) remain reconstructions. README marks the split
+   per file. `echo-owner-reply` / `history-sync` untouched per brief.
+6. **Sandbox pricing values copied verbatim** (`PMP` / `free_customer_service` /
+   `billable: false`) — captured ground truth. Production paid conversations
+   will differ; nothing in our pipeline reads `pricing`.
+7. **`WEBHOOK_VERIFY` unit-tested with `FakeDb`** (`test/app.test.ts`: stub
+   accepts signed / 401s unsigned; `360dialog` and `off` accept unsigned) and
+   `360dialog` mode verified live with an unsigned curl POST → 200, event
+   queued, tenant resolved.
+8. **Phase 1 `SESSION_NOTES.md` moved** to `docs/session-notes/phase-1.md`
+   (content unchanged), same convention as Phase 0, freeing this file.
 
 ## Questions for the coordinator
 
-1. `webhook_events` + queue access had to live in `src/db/` alongside the two
-   spec'd exports (assumption 1) — bless this as the canonical repo-module
-   surface, or should system stores get their own module boundary in R1?
-2. Envelope parser location (assumption 5): graduate to `packages/shared` when
-   captured 360dialog payloads land, or keep runtime-local until a second
-   consumer exists?
-3. `gemini-2.5-flash` as default model — confirm, or pin a different/newer
-   Flash for the R-phases (config caching TODO is noted in `GeminiModel`)?
-4. Statuses have no ordering guard (assumption 10) — acceptable until R1?
-5. Sender interface is `sendText(to, body)` per spec; the outbound row's
-   `wa_message_id` stays NULL with the mock. OK that status fixtures therefore
-   can't match mock-sent messages until Phase 4's real sender?
+1. `360dialog` and `off` verify modes are behaviorally identical until Phase 4
+   (both accept unsigned). Keep the three-value enum as ratified intent, or
+   should `360dialog` mode additionally enforce a configured Basic-auth
+   credential at the app layer in Phase 4 (rather than trusting the edge)?
+2. The sandbox `expiration_timestamp == timestamp` quirk means the sandbox is
+   useless for testing 24h-window math from status payloads. R1's window logic
+   should derive windows from `last_customer_message_at` (as specced), not from
+   `conversation.expiration_timestamp` — confirm.
+3. `contacts[].user_id` / `from_user_id` look like a WhatsApp identity rollout
+   (country-prefixed). We ignore them today; worth capturing as a note for the
+   CRM data model (dedupe across phone-number changes) in a later phase?

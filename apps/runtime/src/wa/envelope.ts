@@ -1,10 +1,19 @@
 /**
  * Defensive parsing of the 360dialog-forwarded Meta Cloud API webhook envelope.
  *
- * Runtime-local on purpose: only the runtime ever parses webhooks, and the
- * fixture payloads are reconstructions pending captured sandbox payloads
- * (fixtures/README.md). Graduate these types to `packages/shared` once real
- * payloads confirm the shape. No zod here — plain narrowing over `unknown`.
+ * Shape provenance — captured sandbox deliveries, 2026-07-19 (fixtures/README.md):
+ * inbound `messages` and `statuses` (sent/delivered/read) are captured-verified.
+ * Every path this parser extracts exists in the captures. Real payloads also
+ * carry fields we deliberately ignore: `contacts[].user_id` /
+ * `messages[].from_user_id` / `statuses[].recipient_user_id`, plus
+ * `conversation` and `pricing` on statuses; status deliveries include a
+ * `contacts` array without `profile`, so `profile.name` must stay optional.
+ * Echo (`smb_message_echoes`) and history shapes remain reconstructions —
+ * coexistence-only, the sandbox cannot emit them.
+ *
+ * Runtime-local on purpose (ratified P1-Q2). Graduation to `packages/shared`
+ * stays deferred until the echo shape is also captured-verified. No zod here —
+ * plain narrowing over `unknown`.
  */
 import type { Database } from '@optiax/shared';
 

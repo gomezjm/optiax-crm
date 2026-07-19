@@ -5,7 +5,6 @@
       "id": "1000000000000001",
       "changes": [
         {
-          "field": "messages",
           "value": {
             "messaging_product": "whatsapp",
             "metadata": {
@@ -15,24 +14,27 @@
             "contacts": [
               {
                 "profile": { "name": "Camila Rojas" },
-                "wa_id": "573015550101"
+                "wa_id": "573015550101",
+                "user_id": "CO.1000000000000101"
               }
             ],
             "messages": [
               {
                 "from": "573015550101",
+                "from_user_id": "CO.1000000000000101",
                 "id": "wamid.HBgMNTczMDE1NTUwMTAxFQIAEhggQTIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAA",
                 "timestamp": "1752862200",
-                "type": "image",
                 "image": {
                   "id": "media.4000000000000001",
                   "mime_type": "image/jpeg",
                   "sha256": "8f3e1c2b9d4a5f6e7c8b9a0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
                   "caption": "Listo, ahí está el comprobante de la transferencia 🙏"
-                }
+                },
+                "type": "image"
               }
             ]
-          }
+          },
+          "field": "messages"
         }
       ]
     }

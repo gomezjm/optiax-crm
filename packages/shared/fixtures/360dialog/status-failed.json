@@ -5,19 +5,25 @@
       "id": "2000000000000002",
       "changes": [
         {
-          "field": "messages",
           "value": {
             "messaging_product": "whatsapp",
             "metadata": {
               "display_phone_number": "573004445566",
               "phone_number_id": "222000222000222"
             },
+            "contacts": [
+              {
+                "wa_id": "573125550202",
+                "user_id": "CO.2000000000000202"
+              }
+            ],
             "statuses": [
               {
                 "id": "wamid.HBgMNTczMTI1NTUwMjAyFQIAEhggQjIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAA",
                 "status": "failed",
                 "timestamp": "1752864000",
                 "recipient_id": "573125550202",
+                "recipient_user_id": "CO.2000000000000202",
                 "errors": [
                   {
                     "code": 131047,
@@ -30,7 +36,8 @@
                 ]
               }
             ]
-          }
+          },
+          "field": "messages"
         }
       ]
     }

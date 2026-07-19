@@ -41,10 +41,17 @@ describe('parseEnvelope', () => {
   });
 
   it('parses status updates', () => {
-    const parsed = parseEnvelope(fixture('status-delivered'));
-    expect(parsed.messages).toEqual([]);
-    expect(parsed.statuses).toHaveLength(1);
-    expect(parsed.statuses[0]?.status).toBe('delivered');
+    for (const [name, status] of [
+      ['status-sent', 'sent'],
+      ['status-delivered', 'delivered'],
+      ['status-read', 'read'],
+      ['status-failed', 'failed'],
+    ] as const) {
+      const parsed = parseEnvelope(fixture(name));
+      expect(parsed.messages).toEqual([]);
+      expect(parsed.statuses).toHaveLength(1);
+      expect(parsed.statuses[0]?.status).toBe(status);
+    }
   });
 
   it('tolerates garbage input', () => {

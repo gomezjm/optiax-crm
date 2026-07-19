@@ -20,12 +20,13 @@
             "statuses": [
               {
                 "id": "wamid.HBgMNTczMDE1NTUwMTAxFQIAEhggQTMwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAA",
-                "status": "delivered",
-                "timestamp": "1752863400",
+                "status": "sent",
+                "timestamp": "1752863340",
                 "recipient_id": "573015550101",
                 "recipient_user_id": "CO.1000000000000101",
                 "conversation": {
                   "id": "aa000000000000000000000000000001",
+                  "expiration_timestamp": "1752863340",
                   "origin": {
                     "type": "service"
                   }
