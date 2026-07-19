@@ -71,15 +71,16 @@ Hosted Supabase project + deploy (Vercel, Railway), env/secrets, billing, GDPR d
 
 | Phase/WS | Status | Branch | Notes |
 |---|---|---|---|
-| Phase 0 | not started | — | brief ready |
-| Phase 1 | blocked by P0 | — | |
+| Phase 0 | **verified** (27 unit + 220 isolation tests green) — pending Juan's review + merge | `feat/phase-0-contracts` | 31 session decisions ratified → spec §11. CI workflow committed but unrun (no remote yet). |
+| Phase 1 | spec + brief ready; blocked on P0 merge + CI first run | — | Meta-test grant extension added to spec §6. |
 | R1–R3, D1–D4 | blocked by P1 | — | |
 | C1–C2 | blocked by Phase 2 | — | |
 
 ## Juan's action items (not agent work)
 
+- **Now (before merging Phase 0):** create the GitHub repo, add remote, push `feat/phase-0-contracts`, and confirm the CI workflow actually passes once — a committed-but-never-run `ci.yml` is unverified. Also confirm the committed `SESSION_NOTES.md` is the final 31-decision version.
 - Before Phase 1: put Gemini key in `apps/runtime/.env.local` (never committed).
-- During Phase 1–2: capture **real** webhook payloads from the 360dialog sandbox and replace/confirm fixtures in `packages/shared/fixtures/` (fixtures are best-effort reconstructions until then).
+- During Phase 1–2: capture **real** webhook payloads from the 360dialog sandbox and replace/confirm fixtures in `packages/shared/fixtures/` — **priority raised**: the session flagged `echo-owner-reply.json` and `history-sync.json` as the weakest reconstructions, and R1 (coexistence pause) builds directly on the echo shape.
 - Before Phase 4: 360dialog partner webhook URL config; test Embedded Signup flow manually once.
 - Before Phase 5: create hosted Supabase project; Vercel + Railway accounts; pick the final product name.
 

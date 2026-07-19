@@ -176,3 +176,20 @@ Shape: 360dialog forwards Meta Cloud API format — `{ entry: [{ changes: [{ fie
 - [ ] `pnpm simulate inbound-text` hits a stub server and gets 200
 - [ ] Seed produces 2 fully-populated tenants; isolation suite passes against seeded data
 - [ ] `SESSION_NOTES.md` lists every assumption made where this spec was ambiguous
+
+## 11. Addendum — ratified decisions from the Phase 0 session (2026-07-18)
+
+The Phase 0 session's `SESSION_NOTES.md` (on `feat/phase-0-contracts`) logged 31 numbered decisions. **All are ratified and now canonical** — later sessions must not "fix" them. Highlights later agents are most likely to trip on:
+
+- **Explicit grants are mandatory (migration 6 find)**: on the current Supabase Postgres 17 image, API roles get **no DML at all** on migration-created tables — RLS policies alone grant nothing. Every new table needs explicit `GRANT`s for `authenticated` (per the role matrix) alongside its RLS policies, or clients silently get zero access. Carve-outs stand: `prompt_versions` UPDATE/DELETE and `tenants`/`profiles` INSERT/DELETE revoked from `authenticated`.
+
+- `profiles` has RLS **enabled but not forced** (security-definer helper reads it; forcing would recurse). Every other public table is forced. Do not force it.
+- `auto_reply_rules` is **admin-only write** (it configures agent behavior). `agent_turns` / `webhook_events` have **no client write policies** — service-role only.
+- `prompt_versions`: UPDATE/DELETE revoked for client roles; `service_role` retains grants for GDPR-style cleanup only — the repository-module convention governs its use.
+- `customers.source` / `orders.source` have **no default** — every writer states provenance explicitly.
+- Compiler: skeleton is English with a hard "reply exclusively in Spanish" rule; sanitization **strips** `<`/`>`; seven data blocks (the spec's five + `<escalation_data>`, `<guardrails_data>`); identity section contains no tenant text.
+- Webhook signing: HMAC-SHA256 hex in `x-webhook-signature`, swappable only behind `signWebhookPayload`/`verifyWebhookSignature`.
+- `scripts/seed-auth.ts` also compiles + activates `prompt_versions` (can't be done honestly in static SQL).
+- `pg` is a root **dev** dependency for DB tests only — app code never imports it.
+
+Two decisions ratified provisionally, revisit when the relevant screens are built: (a) `products`/`product_categories` are sales_rep-writable (D2 may restrict); (b) `profiles` updates are admin-only wholesale — reps can't edit their own display_name (D4 may add self-service).
