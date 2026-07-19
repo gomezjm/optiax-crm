@@ -63,3 +63,13 @@ Monotonic rank on `wa_status` updates: `accepted(0) < sent(1) < delivered(2) < r
 - [ ] `AgentSkipReason` exported from `packages/shared`; every silent-skip path from Phase 1 now records a turn
 - [ ] All echo-shape guesses flagged in `SESSION_NOTES.md`
 - [ ] `SESSION_NOTES.md` with assumptions, demo script, questions
+
+## 8. Addendum — ratified decisions + coordinator answers (2026-07-19)
+
+All 20 session assumptions ratified (notes at `docs/session-notes/` after merge; echo-shape guesses E1–E5 remain flagged for the Phase 4 coexistence capture). Canonical answers to the five questions:
+
+1. **Dedicated `no_published_config` skip reason: yes** — distinct from `no_active_prompt` (D-phase tenant-health UX needs to tell them apart). Small change; **carried over to R2** (next runtime session), not its own session.
+2. **`outside_hours` must require `schedule`: yes** — "outside" of an undefined schedule is meaningless; current behavior (= always active) is a silent surprise. `superRefine` tightening in `AgentConfigSchema` + seed config check; **carried over to R2**.
+3. **Echo never downgrades an indefinite pause — canonical.** Indefinite pause is an explicit human decision; automatic events must not weaken it. The D-phase pause-toggle UI may rely on this.
+4. **Console-only skips for no-prompt-version tenants: acceptable for now.** Revisit at D4 (dashboard health/KPIs): candidate additive migration making `agent_turns.prompt_version_id` nullable with `CHECK (prompt_version_id IS NOT NULL OR error IS NOT NULL)` so misconfigured tenants become observable. Do not do this early.
+5. **Pause-by-default on missing/invalid config — canonical.** The owner replied; failing safe (bot yields to human) always beats failing open (bot talks over owner).

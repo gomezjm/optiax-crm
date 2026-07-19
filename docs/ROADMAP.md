@@ -76,9 +76,10 @@ Hosted Supabase project + deploy (Vercel, Railway), env/secrets, billing, GDPR d
 |---|---|---|---|
 | Phase 0 | **merged** | `feat/phase-0-contracts` | 31 decisions ratified → spec §11. |
 | Phase 1 | **built + verified live** (52 unit, 221 isolation, 5 integration green; real Gemini E2E) — pending Juan's review + merge | `feat/phase-1-walking-skeleton` (`415a604`, unpushed) | 24 decisions + 5 questions answered → spec §9 addendum. |
-| Fixture correction | **built + verified** (all suites green, live E2E) — pending Juan's review + merge | `feat/fixture-capture-correction` (`940b398`) | Envelope confirmed against 7 captures; `status-sent.json` added; unsigned-delivery reality → `WEBHOOK_VERIFY` enum. 3 questions ratified → decisions log. |
-| R1 | spec + brief ready; starts after fixture correction merges | — | Includes status ordering guard (P1 Q4). Echo stays reconstruction, isolated in `envelope.ts`. Window math from `last_customer_message_at` re-confirmed. |
-| D1, D2, R2, R3, D3, D4 | queued — **sequential mode** (Juan runs one session at a time): fixtures → R1 → D1 → D2 → R2 → R3 → D3 → D4 | — | Order may adapt per findings. |
+| Fixture correction | **merged** | `feat/fixture-capture-correction` | Envelope capture-verified; `WEBHOOK_VERIFY` enum; ratifications in decisions log. |
+| R1 | **built + verified live** (95 unit, 221 isolation, 9 integration green) — pending Juan's review + merge | `feat/ws-r1-coexistence` (`fa33adf`) | 20 assumptions + 5 answers ratified → R1 spec §8. Echo guesses E1–E5 await Phase 4 capture. |
+| D1 | spec + brief ready; starts after R1 merges | — | First full screen — also establishes the app shell + shadcn/ui foundation all D-sessions reuse. |
+| D2, R2, R3, D3, D4 | queued — sequential: D1 → D2 → R2 → R3 → D3 → D4 | — | **R2 carry-overs from R1**: add `no_published_config` skip reason; require `schedule` for `outside_hours` mode. **D4 note**: revisit `agent_turns.prompt_version_id` nullability for tenant-health observability. |
 | C1–C2 | blocked by Phase 2 | — | |
 
 ## Juan's action items (not agent work)
