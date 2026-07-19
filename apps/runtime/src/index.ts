@@ -1,40 +1,39 @@
 /**
- * Placeholder runtime server (Phase 0).
- *
- * The real agent loop arrives in Phase 1. For now this server exists so that
- * `pnpm simulate <fixture>` has something to POST webhook fixtures at:
- *  - GET  /health   → 200 ok
- *  - POST /webhook  → verifies the (stubbed) signature, echoes an ack.
- *
- * No DB access, no Gemini, no 360dialog calls happen here in Phase 0.
+ * Runtime entrypoint: Hono server + pgmq worker in one process for now
+ * (separable later per the scaling path).
  */
 import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { verifyWebhookSignature } from '@optiax/shared';
+import { loadEnv } from './env.js';
+import { createDb } from './db/index.js';
+import { createApp } from './app.js';
+import { startWorker } from './worker/worker.js';
+import { GeminiModel } from './model/gemini.js';
+import { FakeModel } from './model/fake.js';
+import type { AgentModel } from './model/types.js';
+import { createWaSender } from './wa/sender.js';
 
-const app = new Hono();
+const env = loadEnv();
+const db = createDb({ url: env.supabaseUrl, serviceRoleKey: env.supabaseServiceRoleKey });
 
-app.get('/health', (c) => c.json({ ok: true }));
-
-app.post('/webhook', async (c) => {
-  const rawBody = await c.req.text();
-  const signature = c.req.header('x-webhook-signature') ?? '';
-
-  if (!verifyWebhookSignature(rawBody, signature)) {
-    return c.json({ ok: false, error: 'invalid signature' }, 401);
-  }
-
-  // Phase 1: enqueue to pgmq `wa_inbound` here. Phase 0 just acks.
-  return c.json({ ok: true, received: true });
-});
-
-const port = Number(process.env.PORT ?? 8787);
-
-// Only start listening when executed directly (not when imported by tests).
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop() ?? '')) {
-  serve({ fetch: app.fetch, port }, (info) => {
-    console.log(`[runtime] listening on http://localhost:${info.port}`);
-  });
+let model: AgentModel;
+if (env.geminiApiKey) {
+  model = new GeminiModel({ apiKey: env.geminiApiKey, modelId: env.geminiModelId });
+  console.log(`[runtime] model: ${env.geminiModelId}`);
+} else {
+  model = new FakeModel();
+  console.warn('[runtime] GEMINI_API_KEY not set — using FakeModel (canned replies)');
 }
 
-export { app };
+const sender = createWaSender(env.waSender);
+const app = createApp({ db, ...(env.webhookSecret ? { webhookSecret: env.webhookSecret } : {}) });
+
+serve({ fetch: app.fetch, port: env.port }, (info) => {
+  console.log(`[runtime] listening on http://localhost:${info.port}`);
+});
+const worker = startWorker({ db, model, sender });
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, () => {
+    void worker.stop().finally(() => process.exit(0));
+  });
+}

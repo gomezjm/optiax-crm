@@ -42,7 +42,7 @@ function parseArgs(argv: string[]): { fixture: string; url: string } {
   }
 
   if (!fixture) throw new Error('Usage: pnpm simulate <fixture> [--port 8787] [--url http://...]');
-  return { fixture, url: url ?? `http://localhost:${port}/webhook` };
+  return { fixture, url: url ?? `http://localhost:${port}/webhooks/wa` };
 }
 
 async function main(): Promise<void> {

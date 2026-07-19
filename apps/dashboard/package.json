@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@optiax/shared": "workspace:*",
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.7",
     "next": "^15.3.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

@@ -60,6 +60,29 @@ describe('schema meta-invariants', () => {
     ).toEqual([]);
   });
 
+  it('every public table grants at least SELECT to authenticated (Phase 1 spec §6)', async () => {
+    // Postgres 17 fail-closed mode: a table with RLS but no grants silently
+    // returns zero rows to clients. Every table must opt in explicitly
+    // (phase-0 spec §11, migration-6 note).
+    const res = await pool.query<{ tablename: string }>(
+      `select t.tablename
+       from pg_tables t
+       where t.schemaname = 'public'
+         and not exists (
+           select 1 from information_schema.role_table_grants g
+           where g.table_schema = 'public'
+             and g.table_name = t.tablename
+             and g.grantee = 'authenticated'
+             and g.privilege_type = 'SELECT'
+         )
+       order by t.tablename`,
+    );
+    const offenders = res.rows.map((r) => r.tablename);
+    expect(offenders, `tables without SELECT for authenticated: ${offenders.join(', ')}`).toEqual(
+      [],
+    );
+  });
+
   it('tenants and profiles keep RLS enabled too', async () => {
     const res = await pool.query<{ tablename: string; rowsecurity: boolean }>(
       `select tablename, rowsecurity from pg_tables

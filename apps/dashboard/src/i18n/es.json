@@ -1,0 +1,40 @@
+{
+  "common": {
+    "appName": "Optiax CRM",
+    "appDescription": "CRM de WhatsApp con agente de ventas IA",
+    "signOut": "Cerrar sesión",
+    "loading": "Cargando…"
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "emailLabel": "Correo electrónico",
+    "passwordLabel": "Contraseña",
+    "submit": "Entrar",
+    "submitting": "Entrando…",
+    "invalidCredentials": "Correo o contraseña incorrectos."
+  },
+  "inbox": {
+    "title": "Bandeja de entrada",
+    "emptyList": "No hay conversaciones todavía.",
+    "noneSelected": "Selecciona una conversación para ver los mensajes.",
+    "emptyThread": "Esta conversación no tiene mensajes.",
+    "unnamedCustomer": "Cliente sin nombre",
+    "noMessagesYet": "Sin mensajes",
+    "source": {
+      "customer": "Cliente",
+      "bot": "Agente IA",
+      "owner_app": "Dueño (celular)",
+      "dashboard": "Equipo",
+      "campaign": "Campaña",
+      "system": "Sistema"
+    },
+    "mediaPlaceholder": {
+      "image": "[imagen]",
+      "audio": "[audio]",
+      "video": "[video]",
+      "document": "[documento]",
+      "template": "[plantilla]",
+      "other": "[mensaje]"
+    }
+  }
+}

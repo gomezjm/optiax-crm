@@ -5,8 +5,8 @@
 | Path | What it is |
 |---|---|
 | `packages/shared` | **The only home for types/schemas.** Zod schemas (agent config, segment rules, auto-reply triggers), prompt compiler, generated DB types, webhook fixtures + signature stub. |
-| `apps/runtime` | Hono service (Phase 0: webhook stub only). Phase 1: the per-message agent loop. |
-| `apps/dashboard` | Next.js App Router scaffold. No screens yet. |
+| `apps/runtime` | Hono service: `POST /webhooks/wa` + pgmq worker + per-message agent loop (Phase 1). DB only via the tenant-scoped repo in `src/db/`. |
+| `apps/dashboard` | Next.js App Router: login + `/inbox` (Realtime). i18n via `src/i18n/es.json` + typed `t()`. Anon key only. |
 | `supabase/` | Migrations, `seed.sql`, isolation tests (`tests/`), local config. |
 | `scripts/` | `seed-auth.ts` (auth users + compiled prompts), `simulate.ts` (webhook fixture POSTer). |
 | `docs/specs/` | Phase specs. Phase 0: `phase-0-contracts.md` (authoritative on schema). |
@@ -22,6 +22,8 @@ pnpm db:test                      # isolation suite (needs the three steps above
 pnpm typecheck                    # builds shared, typechecks all packages
 pnpm gen:types                    # regenerate packages/shared/src/db-types.ts
 pnpm simulate inbound-text        # POST a webhook fixture at the local runtime
+pnpm --filter @optiax/runtime dev    # webhook server + worker (port 8787)
+pnpm --filter @optiax/dashboard dev  # dashboard (port 3000)
 ```
 
 ## Conventions (hard rules)

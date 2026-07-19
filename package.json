@@ -9,7 +9,7 @@
     "build": "pnpm --filter @optiax/shared build",
     "typecheck": "pnpm build && pnpm -r typecheck",
     "test": "pnpm build && pnpm -r test",
-    "db:test": "pnpm seed:auth && vitest run --config supabase/tests/vitest.config.ts",
+    "db:test": "pnpm seed:auth && vitest run --config supabase/tests/vitest.config.ts && pnpm --filter @optiax/runtime test:integration",
     "gen:types": "supabase gen types typescript --local --schema public > packages/shared/src/db-types.ts",
     "seed:auth": "tsx scripts/seed-auth.ts",
     "simulate": "tsx scripts/simulate.ts",

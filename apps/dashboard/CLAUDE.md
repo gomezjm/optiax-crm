@@ -1,18 +1,26 @@
 # apps/dashboard
 
-Next.js (App Router) scaffold. **No screens in Phase 0** — they arrive in later phases
-(configurator wizard, inbox, customers, orders, campaigns).
+Next.js (App Router, `src/`). Phase 1 screens: `/login` (email/password) and
+`/inbox` (conversation list + live thread via Supabase Realtime). This is the
+structural template for all D-workstreams.
 
 ## Do
 
-- Import every type/schema from `@optiax/shared` (e.g. `AgentConfigSchema` for the wizard,
-  `Database` for supabase-js typing).
-- Talk to Supabase directly with the anon key + user session; RLS does the scoping.
-- Render config validation errors from `validateAgentConfig`'s structured `path`+`message` list.
-- Put user-facing strings in `es.json` once screens exist — no hardcoded copy.
+- Import every type/schema from `@optiax/shared` (e.g. `Database` for
+  supabase-js typing).
+- Talk to Supabase only through the helpers in `src/lib/supabase/`
+  (anon key + user session; RLS does the scoping) — enforced by eslint
+  `no-restricted-imports` and the runtime's import-restriction test.
+- **Every UI string goes in `src/i18n/es.json`**, accessed via the typed
+  `t('screen.key')` helper (`src/i18n/index.ts`). Zero hardcoded copy.
+- Guard authenticated routes in `src/middleware.ts` (session refresh lives in
+  `src/lib/supabase/middleware.ts`).
+- Render config validation errors from `validateAgentConfig`'s structured
+  `path`+`message` list (when the configurator arrives).
 
 ## Don't
 
-- Don't use the service-role key here, ever.
-- Don't edit raw prompts in the UI — the dashboard edits structured config JSON only.
-- Don't add screens, routes, or product features while this is Phase 0.
+- Don't use the service-role key here, ever (CI greps for it).
+- Don't edit raw prompts in the UI — the dashboard edits structured config only.
+- Don't add an i18n library yet — revisit in D1.
+- Don't add a composer/sending to the inbox yet — later feature.

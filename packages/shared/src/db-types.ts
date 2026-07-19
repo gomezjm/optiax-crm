@@ -1129,7 +1129,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      wa_inbound_archive: { Args: { queue_msg_id: number }; Returns: boolean }
+      wa_inbound_read: {
+        Args: { max_messages: number; vt_seconds: number }
+        Returns: {
+          message: Json
+          msg_id: number
+          read_ct: number
+        }[]
+      }
+      wa_inbound_send: { Args: { payload: Json }; Returns: number }
     }
     Enums: {
       e_attr_type: "text" | "number" | "date" | "select" | "boolean"
