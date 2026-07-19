@@ -9,7 +9,11 @@
  *
  * Idempotent: safe to re-run. Local-only: defaults to the Supabase CLI demo keys.
  */
+import { WebSocket } from 'ws';
 import { createClient } from '@supabase/supabase-js';
+
+// supabase-js v2 expects a WebSocket global; Node 20 doesn't provide one.
+globalThis.WebSocket ??= WebSocket as unknown as typeof globalThis.WebSocket;
 // Imported from source so the script works without a prior `pnpm build`.
 import { AgentConfigSchema } from '../packages/shared/src/schemas/agent-config.js';
 import { compilePrompt } from '../packages/shared/src/compiler/compile-prompt.js';

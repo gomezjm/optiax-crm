@@ -50,12 +50,9 @@ describe('schema meta-invariants', () => {
     // Guards against "RLS enabled but no policies at all AND no grants revoked" drift:
     // a table with zero policies is only acceptable because anon/authenticated then
     // get zero rows — but flag tables where someone added a permissive `true` policy.
-    const res = await pool.query<{ tablename: string; qual: string | null }>(
-      `select c.relname as tablename, p.qual::text as qual
-       from pg_policy p
-       join pg_class c on c.oid = p.polrelid
-       join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and p.qual is not null and p.qual::text = 'true'`,
+    const res = await pool.query<{ tablename: string }>(
+      `select tablename from pg_policies
+       where schemaname = 'public' and (qual = 'true' or with_check = 'true')`,
     );
     expect(
       res.rows.map((r) => r.tablename),

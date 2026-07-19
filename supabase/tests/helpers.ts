@@ -2,8 +2,12 @@
  * Shared helpers for the isolation suite. Runs against local Supabase
  * (`supabase start` + `supabase db reset` + `pnpm seed:auth` first).
  */
+import { WebSocket } from 'ws';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import pg from 'pg';
+
+// supabase-js v2 expects a WebSocket global; Node 20 doesn't provide one.
+globalThis.WebSocket ??= WebSocket as unknown as typeof globalThis.WebSocket;
 
 export const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 export const DB_URL =

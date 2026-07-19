@@ -82,16 +82,20 @@ describe('cross-tenant isolation (tenant-A admin)', () => {
 
     for (const table of TENANT_TABLES) {
       it(table, async () => {
+        const before = await pool.query(
+          `select count(*)::int as n from public.${table} where tenant_id = $1`,
+          [TENANT_B],
+        );
         const payload = insertPayloadFor(table, refs.b);
         const { data, error } = await clientA.from(table).insert(payload).select();
         expect(error, `insert into ${table} with tenant B id must fail`).not.toBeNull();
         expect(data ?? []).toEqual([]);
         // Belt & suspenders: nothing landed in B's partition.
-        const check = await pool.query(
-          `select count(*)::int as n from public.${table} where tenant_id = $1 and created_at > now() - interval '1 minute'`,
+        const after = await pool.query(
+          `select count(*)::int as n from public.${table} where tenant_id = $1`,
           [TENANT_B],
         );
-        expect(check.rows[0]?.n).toBe(0);
+        expect(after.rows[0]?.n).toBe(before.rows[0]?.n);
       });
     }
   });
