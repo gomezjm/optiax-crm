@@ -13,6 +13,8 @@ Source documents (repo root): `PRD_ LatAm WhatsApp CRM & AI Agent.md` (product s
 | 2026-07-18 | Infra today: Gemini API key ✅, 360dialog account ✅, **no hosted Supabase project yet** → all dev is local-first (`supabase` CLI) with webhook fixtures. Hosted project created in Phase 5. |
 | 2026-07-18 | UI: **Spanish-first, i18n-ready** (`es.json` from day one, `en` later). |
 | 2026-07-18 | Monorepo, pnpm workspaces: `packages/shared`, `apps/runtime`, `apps/dashboard`. |
+| 2026-07-19 | Phase 2 runs **sequentially** (one session at a time): R1 → D1 → D2 → R2 → R3 → D3 → D4. Each branches off `main` after the previous merge — no cross-branch conflicts to manage. |
+| 2026-07-19 | Phase 1 ratifications: repo-module surface incl. `webhookEvents`/`queue`; envelope parser runtime-local until real payloads; `gemini-2.5-flash` default. See phase-1 spec §9. |
 
 ## Repo layout (target)
 
@@ -71,16 +73,18 @@ Hosted Supabase project + deploy (Vercel, Railway), env/secrets, billing, GDPR d
 
 | Phase/WS | Status | Branch | Notes |
 |---|---|---|---|
-| Phase 0 | **verified** (27 unit + 220 isolation tests green) — pending Juan's review + merge | `feat/phase-0-contracts` | 31 session decisions ratified → spec §11. CI workflow committed but unrun (no remote yet). |
-| Phase 1 | spec + brief ready; blocked on P0 merge + CI first run | — | Meta-test grant extension added to spec §6. |
-| R1–R3, D1–D4 | blocked by P1 | — | |
+| Phase 0 | **merged** | `feat/phase-0-contracts` | 31 decisions ratified → spec §11. |
+| Phase 1 | **built + verified live** (52 unit, 221 isolation, 5 integration green; real Gemini E2E) — pending Juan's review + merge | `feat/phase-1-walking-skeleton` (`415a604`, unpushed) | 24 decisions + 5 questions answered → spec §9 addendum. |
+| Fixture correction | brief ready; runs right after P1 merge + payload capture | — | Sandbox live; capture tooling in working tree. Sandbox **cannot** emit `smb_message_echoes` — echo capture needs a coexistence number (Phase 4). |
+| R1 | spec + brief ready; starts after fixture correction merges | — | Includes status ordering guard (P1 Q4). Echo stays reconstruction, isolated in `envelope.ts`. |
+| D1, D2, R2, R3, D3, D4 | queued — **sequential mode** (Juan runs one session at a time): fixtures → R1 → D1 → D2 → R2 → R3 → D3 → D4 | — | Order may adapt per findings. |
 | C1–C2 | blocked by Phase 2 | — | |
 
 ## Juan's action items (not agent work)
 
 - **Now (before merging Phase 0):** create the GitHub repo, add remote, push `feat/phase-0-contracts`, and confirm the CI workflow actually passes once — a committed-but-never-run `ci.yml` is unverified. Also confirm the committed `SESSION_NOTES.md` is the final 31-decision version.
 - Before Phase 1: put Gemini key in `apps/runtime/.env.local` (never committed).
-- During Phase 1–2: capture **real** webhook payloads from the 360dialog sandbox and replace/confirm fixtures in `packages/shared/fixtures/` — **priority raised**: the session flagged `echo-owner-reply.json` and `history-sync.json` as the weakest reconstructions, and R1 (coexistence pause) builds directly on the echo shape.
+- Now: run the sandbox capture (runbook: `docs/runbooks/capture-360dialog-webhook.md`) — inbound + status payloads, then hand to the fixture-correction session. **Echo/history-sync capture is deferred to Phase 4**: the sandbox can't produce coexistence events; they need a real coexistence-connected number (Embedded Signup). Until then the echo shape stays a reconstruction isolated in `envelope.ts`.
 - Before Phase 4: 360dialog partner webhook URL config; test Embedded Signup flow manually once.
 - Before Phase 5: create hosted Supabase project; Vercel + Railway accounts; pick the final product name.
 

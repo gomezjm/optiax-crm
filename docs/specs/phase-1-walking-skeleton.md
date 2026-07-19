@@ -90,3 +90,15 @@ Exact commands for Juan: terminals for `supabase start`/db reset+seed, runtime w
 - [ ] No file outside `apps/runtime/src/db/` imports supabase-js in the runtime; dashboard has no service key
 - [ ] `es.json` holds every UI string
 - [ ] `SESSION_NOTES.md` with assumptions + demo script
+
+## 9. Addendum — ratified decisions + coordinator answers (2026-07-19)
+
+The Phase 1 session logged 24 decisions (`docs/session-notes/` after merge). **All ratified.** Canonical answers to its five questions — later sessions treat these as law:
+
+1. **Repo-module surface**: `createDb()` exposing `resolveTenantByPhoneNumberId`, `createTenantRepo`, `webhookEvents`, and `queue` is the canonical boundary. The invariant was never "two exports" — it is *the raw service client never leaves `src/db/`* (doubly enforced: eslint + CI grep test). No separate system-store module.
+2. **Envelope parser stays runtime-local** (`apps/runtime/src/wa/envelope.ts`). It graduates to `packages/shared` only as part of the fixture-replacement task (when captured payloads land) or when a second consumer appears — whichever comes first.
+3. **`gemini-2.5-flash` confirmed** as default `GEMINI_MODEL_ID`. Per-tenant model strategy and context caching stay parked (R3/scale-phase).
+4. **Status ordering guard deferred to R1** — R1 adds a monotonic rank (`accepted < sent < delivered < read`; `failed` terminal, always recordable). Until then late `delivered` may overwrite `read`; accepted.
+5. **Mock-sent outbound rows keep `wa_message_id` NULL** — status fixtures can't match them until Phase 4's real sender. Status-handling tests use synthetic ids on inbound rows or direct DB setup.
+
+Also ratified: retry-safe dedupe via `hasOutboundReplyAfter` (decision 4 — do not "simplify" it back to bare skip); terminal-failure semantics (`processed_at` NULL + `error` set); `FakeModel` fallback boot with loud warning; supabase-js ban scoped to `src/**` so tests may create their own client.
