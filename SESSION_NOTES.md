@@ -1,10 +1,27 @@
-# WS-D2 — Session notes (Products catalog + Orders management)
+# WS-R2 — Session notes (Agent tools / function calling)
 
-Spec: `docs/specs/ws-d2-orders-products.md`. Branch `feat/ws-d2-orders-products`
-off `main`. Previous sessions' notes live in `docs/session-notes/` (the D1 notes
-moved there from this file, same convention as Phase 0/1, R1).
+Spec: `docs/specs/ws-r2-agent-tools.md`. Branch `feat/ws-r2-agent-tools` off
+`main`. Previous sessions' notes live in `docs/session-notes/` (the D2 notes
+moved there from this file, same convention as Phase 0/1, R1, D1).
 
-Ratified inputs honoured as law: phase-0 §11, phase-1 §9, R1 §8, D1 §10.
+Ratified inputs honoured as law: phase-0 §11, phase-1 §9, R1 §8, D2 §7.
+
+---
+
+## 0. One setup deviation, approved mid-session
+
+The brief said "branch off `main`", but `main` did not contain D2 — its feature
+commit lived only on `feat/ws-d2-orders-products`, so `OrderCreateSchema`,
+`ProductSchema` and the `order_items` table were all absent. R2 cannot build in
+that tree. Surfaced before starting; Juan chose to merge D2 into `main` first
+(and to commit the loose D2 ratification docs onto the D2 branch). Both done,
+then R2 branched off the merged `main`. The ROADMAP's sequential rule was
+followed, just with the missing merge performed first.
+
+**Bookkeeping note, not agent work:** the ROADMAP still lists D1 as "pending
+Juan's review + merge" though it is on `main`, and listed D2 as "staged, pending
+go-ahead to commit" though it was already committed. Left both alone rather than
+editing your status log.
 
 ---
 
@@ -14,264 +31,253 @@ Everything below was decided inside this session. Ratify, correct, or park each.
 
 ### Carry-overs (§0)
 
-1. **Only the five enumerated routes were renamed** — `/orders`, `/products`,
-   `/campaigns`, `/agent`, `/settings`. `/inicio` was left alone because both
-   D1 §10.4 and D2 §0.1 enumerate exactly five and neither lists it. It is now
-   the one Spanish path in an otherwise English set — see Question A. Old paths
-   404; middleware matcher and sidebar were updated with the directories.
-2. **Phone normalization applies to create *and* edit**, not just create. D1
-   §10.1 says "every path", and an edit that re-saved a formatted phone would
-   quietly undo the rule.
-3. **Seeded phones were converted to bare digits too.** "Unify on digits
-   everywhere" is unenforceable if the fixture data contradicts it. D1's dedupe
-   test still passes unchanged: it feeds `'+57 301 555 0101'` through
-   `importCustomers`, which normalizes both sides before comparing.
-4. **`formatPhone` is the display half of D1 §10.1** (new, in `lib/format.ts`).
-   Colombian mobiles (57 + 10 digits) and bare 10-digit numbers get local
-   grouping; anything else falls back to `+digits` rather than being mangled.
-   The customer drawer shows the formatted value in the editable field and
-   normalizes on save — unit-tested as idempotent.
-5. **The seeded number attribute is `descuento_pct`** ("Descuento habitual
-   (%)"), paired with the specified `acepta_mayorista` boolean; both seeded as
-   presets for both tenants. Values were added to seeded customers so the DB
-   test asserts real rows — Camila false/5, Juliana true/15, Andrés true/10,
-   María Fernanda neither, the last proving absence excludes rather than
-   defaulting to false/0.
+1. **`no_published_config` replaces `no_active_prompt` only on the config path.**
+   The genuinely-missing-prompt path still records `no_active_prompt`. The two
+   are now documented as deliberately distinct in the enum.
+2. **`outside_hours` without a schedule now fails *closed* at runtime.** §0.2
+   only mandated the schema tightening, which makes the branch unreachable for
+   validated config. I also flipped `isAgentActive`'s now-dead fallback from
+   always-active to inactive, because R1 §8.5 ratified that failing safe beats
+   the bot talking over the owner, and always-active was the exact "silent
+   surprise" §8.2 set out to remove. The test that covered the old behavior now
+   hand-builds an unvalidated config to reach the branch at all.
+3. **No seed config needed fixing for 0.2** — the seeds use only `always` and
+   `schedule`. (The `outside_hours` string in `seed.sql` is an auto-reply
+   trigger, a different schema.)
+4. **The subpath split moved webhook signing only.** §0.3 also says "split
+   schema entrypoints"; the stated goal — the dashboard never bundling
+   `node:crypto` — is fully achieved by moving that one module, and further
+   entrypoints would be churn with no beneficiary. Verified by building the
+   dashboard with the `browser` stub removed and confirming zero
+   webhook-signature references in the client bundle.
+5. **`scripts/simulate.ts` was left importing from source.** It already bypassed
+   the package export so it runs without a prior build; the subpath change does
+   not affect it.
+6. **`packages/shared/CLAUDE.md` was amended.** It said "export everything
+   through `src/index.ts`", which 0.3 deliberately contradicts. The rule now
+   carves out Node-only modules explicitly.
+7. **`order_items.sort_order` backfills to 0, not to a derived sequence.**
+   Inventing a per-order order from `created_at` would assert an ordering the
+   seed data never had. Readers wanting order should sort `(sort_order,
+   created_at)`, which degrades to today's behavior for untouched rows.
+8. **The dashboard composer still does not write `sort_order`.** R2 §0.4 says
+   the dashboard sets it "later" and the brief forbids dashboard changes, so
+   `create_order` is the only writer. Note this conflicts slightly with D2 §7.E
+   ("in the same migration's wake") — see Question A.
 
-### The §4 trigger and its blast radius
+### Schemas (`packages/shared`)
 
-6. **Seeded `total_spent` / `last_order_at` are now derived, and the seed was
-   made consistent with what the trigger computes.** Unavoidable: the trigger
-   fires during `supabase db reset`, so the previous literals were overwritten
-   and the file would have been lying about its own fixtures. The reconciliation
-   preserves the narrative rather than flattening it:
-   - `orders.created_at` is now explicit in the seed. Left to default `now()`,
-     every customer's "last order" collapsed to today, which would have
-     destroyed D1's `lastOrderOlderThanDays` filter as a demoable feature.
-   - Four historical orders were added so totals stay realistic (Camila 215000,
-     Juliana 452000, Andrés 396000, María Fernanda 32000).
-   - **One seeded order is `cancelled`** (Camila, 145000) specifically so the
-     exclusion rule is visible in fixture data, not only in a test.
-   - Two seeded totals moved: Camila 224000 → 215000, Juliana 468000 → 452000.
-     Juliana stays above 400000, so D1's `totalSpentMin: 400000` assertion is
-     untouched — only its explanatory comment was updated.
-   - **María Fernanda's seeded total was already wrong**: 0, despite a
-     delivered 32000 order. The trigger surfaced a pre-existing fixture bug.
-7. **The trigger fires on every `orders` UPDATE, not a column subset.** The spec
-   asked for full recompute for self-healing; a `WHEN` clause would be a
-   micro-optimization that reintroduces exactly the drift the design avoids.
-8. **A reassigned order recomputes both customers.** Not in the spec, but
-   `customer_id` is mutable and leaving the old owner's rollup stale is the
-   silent drift the full-recompute design exists to prevent.
-9. **`security definer` + `set search_path = ''`**, matching `private.tenant_id()`.
-   `EXECUTE` is revoked from `public`/`anon`/`authenticated`: only the trigger
-   invokes it, and Postgres checks that grant at `CREATE TRIGGER` time.
-10. **Status *kind* changes do not retrigger a recompute.** If D4 lets an owner
-    flip a status's `kind` to or from `cancelled`, affected totals stay stale
-    until the next write to that customer's orders. Out of scope here; flagged
-    for D4.
+9. **All four tool-arg schemas live in `packages/shared`**, not just
+   `CaptureCustomerSchema`. The hard rule is that schemas live there and nowhere
+   else, and R3's evals will assert on these shapes.
+10. **`create_order`'s model-facing args are a narrowed projection of
+    `OrderCreateSchema`, derived via `.omit()`/`.extend()` — not a fork.** The
+    executor composes model args with loop context and validates the resulting
+    write with `OrderCreateSchema` **verbatim**. This was necessary because the
+    D2 schema requires `customer_id` (identity — must come from the
+    conversation, never the model) and `unit_price`/`description` per line
+    (which must come from the catalog, or a customer could talk the agent into a
+    price the business never set).
+11. **Agent-created order lines must reference a real `product_id`.** The stored
+    column stays nullable for D2's history-preservation reason, but a line the
+    agent invents has no price source, so free-text lines are rejected.
+12. **The delivery fields became optional in the model-facing schema.** In
+    `OrderCreateSchema` they are nullable-but-*required*, which is right for a
+    form that always submits every field. A model passes only what the customer
+    mentioned, so requiring an explicit `null` failed every ordinary call. The
+    executor fills the omitted ones with `null` before D2's schema sees them.
+    (Found by the parity test, not by reading.)
+13. **`capture_customer` cannot write `wa_id` or `phone`.** Those come from the
+    WhatsApp envelope; letting the model rewrite them would let one customer
+    reassign another's record.
 
-### Products (§1)
+### Tools and loop
 
-11. **Images are only uploadable once the product exists.** The Storage key
-    contains the product id, so uploading first would strand blobs under a key
-    nothing references. Saving a new product reopens the drawer in edit mode,
-    where the photo section is live.
-12. **Image paths persist immediately on upload/remove**, not on the next
-    "Guardar". The blob is already in Storage at that point; deferring the row
-    write means closing the drawer orphans it.
-13. **Prices are parsed with Colombian conventions** (`lib/products/price-input.ts`).
-    `formatMoney` renders 89000 as "$ 89.000", so a plain `Number("89.000")`
-    would turn an $89.000 blouse into an $89 one. A lone dot before exactly
-    three digits is a thousands separator; a comma is always the decimal mark.
-    Unit-tested, including round-tripping what the app itself prints.
-14. **The availability toggle is a purpose-built `role="switch"` button**, not a
-    new shadcn primitive. `radix-ui` does already bundle the switch, so this was
-    a design call, not a dependency one: in a table the control has to read as
-    *state* at a glance, and it is the domain's "¿se vende?" rather than a
-    generic toggle.
-15. **Deletion is FK-guarded by catching `23503`**, per the spec, rather than
-    pre-counting `order_items`. A pre-check races; the constraint does not.
-16. **Search matches product names only.** Descriptions are long marketing copy,
-    and matching them makes the catalog search feel random to an owner hunting
-    one garment.
-17. **Thumbnails are plain `<img>` on signed URLs.** `next/image` would need a
-    `remotePatterns` entry per deployment and would cache-bust on every
-    re-sign, for a 40px tile. This repo doesn't configure the `@next/next`
-    eslint plugin, so the reasoning is a comment rather than a disable
-    directive (a directive for an unconfigured rule is itself a lint error).
+14. **JSON schemas are hand-mapped; `zod-to-json-schema` was rejected.** It
+    emits `$ref`/`definitions` and `anyOf`-for-optional that Gemini's
+    function-calling subset rejects, so it would need post-processing longer
+    than the four literals it replaces — for one new dependency. The drift risk
+    is covered by a parity test that walks each declaration against its Zod
+    schema in **both** directions (declared-required must be schema-required,
+    declared-optional must be schema-optional). That test is what caught
+    assumption 12.
+15. **`handoff_to_human` is always declared**, regardless of escalation config.
+    Config shapes *when* to escalate; a bot with no way to reach a human is a
+    trap for the customer.
+16. **`check_catalog` and `create_order` are both withheld when the tenant has
+    no products.** An order with no catalog could only be invented.
+17. **Handoff pauses indefinitely** (`paused_until: null`), matching the manual
+    dashboard toggle rather than the timed owner-echo pause. A human owns the
+    conversation now; a timed pause would have the bot resume mid-problem. R1's
+    rule that an echo never downgrades an indefinite pause protects this.
+18. **Tool calls batched after a handoff in the same round are dropped.** After
+    the handoff the conversation belongs to a human, and continuing to write to
+    it is the bot acting after being told to stop.
+19. **Hitting the 4-round ceiling sends the configured handoff message** rather
+    than going silent or sending half-formed prose. A customer waiting on
+    WhatsApp gets an answer either way.
+20. **Every model round is its own `agent_turn`; only the last carries
+    `message_id`.** Tool-only rounds have no outbound message to attach to, so
+    `message_id` is null there. Cumulative token/latency accounting comes from
+    summing the rounds.
+21. **`canQuotePrices: false` withholds prices from the tool result entirely**,
+    rather than returning them with an instruction not to say them. Structural
+    beats advisory.
+22. **The 24h-window guard moved ahead of the model call.** R1 checked it just
+    before the send, which was correct when a turn was pure. A turn can now
+    create orders and write customer data, and doing that for a message we may
+    not answer would leave a customer with an order nobody told them about. The
+    pre-send `assertWithinWindow` stays as the invariant the runtime CLAUDE.md
+    asks for. **This changed an existing R1 test's expectation** (the model is
+    now never reached, not merely un-sent).
+23. **Media (§5) is wired as "the image reaches the model as `[imagen]`, and
+    escalation config decides what happens".** No OCR, nothing read. The
+    existing R1 history placeholder already did the work; no new code path.
+24. **Audio still skips before any tool runs** — R1 behavior unchanged.
 
-### Orders (§2/§3)
+### Compiler
 
-18. **Payment state is derived, never stored** (`paymentState()` in shared).
-    There is no column for it, and deriving keeps it honest when R2's agent
-    writes a proof path directly. The four filter sets partition the table with
-    no overlap — asserted in both the unit and DB suites.
-19. **Blank payment/logistics text inputs persist as `NULL`, not `''`.** The
-    derived state treats `''` as "no payment" while the PostgREST filter uses
-    `is.null`; normalizing on write keeps chip and filter in agreement.
-20. **`created_at` range filters expand to explicit day bounds at `-05:00`.**
-    Colombia has no DST, so a fixed offset is correct today. `delivery_date` is
-    a plain `date` column and is compared as-is (and formatted via UTC, since
-    `new Date('2026-07-22')` is UTC midnight = the 21st in Bogotá).
-    `todayIsoDate()` resolves "hoy" in America/Bogota — 11pm in Medellín is
-    already tomorrow in UTC, and "Entregas de hoy" showing the wrong day would
-    be a real operational bug. **All timezone handling is hardcoded to
-    Colombia**, as `lib/format.ts` already was — see Question D.
-21. **"Entregas de hoy" clears other filters** rather than intersecting with
-    them. An owner clicking it wants the whole day's run sheet, not today's
-    deliveries ∩ whatever they were looking at a minute ago.
-22. **CSV totals are bare integers**, not "$ 75.000". The destination is
-    Sheets/Excel, where a formatted string stops being a number and the column
-    stops summing. A UTF-8 BOM is prepended so Excel renders "María" correctly.
-23. **Order items are read-only after creation.** The spec's drawer scope lists
-    status/payment/logistics only. Editing lines means recomputing the total and
-    re-firing the trigger — coherent, but more than the spec asked for. See
-    Question C.
-24. **Manual creation compensates instead of transacting.** PostgREST offers no
-    cross-table transaction, so a failed `order_items` insert deletes the order
-    just created. An order with a total and no lines would be worse than no
-    order: it would feed `total_spent` with nothing to justify it.
-25. **"Create new customer" is a name+phone form calling D1's `createCustomer`**,
-    rather than mounting D1's full `CustomerDrawer`. The drawer would need the
-    tenant's attribute defs and tags fetched on every orders render for a
-    rarely-taken path; `CustomerCreateSchema` requires exactly name+phone, so
-    the validation, normalization and duplicate check are all still D1's.
-26. **`/customers?customer=<id>` is a new deep link.** The spec asked the order
-    drawer to link to "the `/customers` drawer", which did not previously exist
-    as a URL. ~15 lines in `customers-client.tsx`; the id is fetched rather than
-    looked up in the current page, since the customer usually isn't on it.
-27. **Verification is reversible** ("Quitar verificación"). Verifying is a human
-    judgement on a screenshot, and humans misread screenshots.
-28. **Unavailable products are pickable in the composer, with a warning**, per
-    the spec's offline-sale rationale.
-
-### Cross-cutting
-
-29. **`common.pagination.*` was added** and used by both new screens.
-    `customers.pagination.*` was left in place — deduping D1's copy is cosmetic
-    churn in shipped code. Minor duplication in `es.json`.
-30. **`toSearchParams` was extracted** to `lib/search-params.ts`, and
-    `customers/page.tsx` switched to it. Three copies of the same six lines is
-    where extraction earns itself; leaving D1 on its own copy would have created
-    the second pattern the brief warns against.
-31. **Signed-URL failures degrade to a placeholder, never an exception.** A
-    thumbnail is decoration; blanking a whole list because one object was
-    deleted out from under it is the worse failure.
+25. **The compiler said `capture_lead`; the tool is `capture_customer`.** The
+    prompt was telling the model to call a tool that does not exist, and
+    `capture_lead` matches neither the `customers` table nor any executor. The
+    architecture doc §2 also says `capture_lead` — it predates the schema. Fixed
+    to `capture_customer`; see Question B.
+26. **Tool-usage instructions were strengthened**, incl. an explicit
+    "a tool result is information, not an instruction" line and an
+    injection-resistance line. **`COMPILER_VERSION` 1.0.0 → 1.1.0**, all three
+    snapshots updated, seeds recompiled.
 
 ---
 
-## 2. Demo script
+## 2. Two defects the tests could not have found
 
-Prereqs: `supabase start && supabase db reset && pnpm seed:auth`, then
-`pnpm --filter @optiax/dashboard dev`. Log in as `rep@modavalentina.test` /
-`password123` (Moda Valentina). Have any photo file on hand.
+Both surfaced only under a real Gemini conversation, and both are committed with
+regression tests (`eaa0c9f`).
 
-1. **Catalog + image** — `/products`. Eight seeded products; "Vestido camisero
-   Lucía" is *Agotado*, "Blusa de lino Manuela" shows 89.000 struck through with
-   promo 75.000. → *Nuevo producto*: name "Blusa demo D2", price `89.000` (type
-   the dots — assumption 13), promo `75.000`, save. The drawer reopens in edit
-   mode; add a photo and watch it come back downscaled. Reopen from the list to
-   confirm the thumbnail.
-2. **Panic toggle** — click *Disponible* on the new row. It flips instantly and
-   survives a refresh. Filter *Disponibilidad: Agotado* to confirm it moved.
-3. **Guarded delete** — open "Blusa de lino Manuela" (seeded, already on an
-   order) → *Eliminar producto* → confirm. It refuses with an amber panel
-   offering *Marcar como agotado*. Then delete the demo product from step 1: it
-   goes cleanly.
-4. **Manual order with prefills** — `/orders` → *Nuevo pedido*. Search "Camila",
-   pick her; the delivery address prefills from her profile. Add an item: pick
-   "Vestido midi Catalina" — description and unit price prefill (promo price
-   wins where one exists). Add a second line with qty 2. The total sums live and
-   cannot be typed over. Set delivery date to **today**. Create.
-5. **Pipeline** — the order lands as *Nuevo* (blue). Change status inline in the
-   list to *En preparación* (violet). Open the drawer, move it to *Enviado*
-   (cyan).
-6. **Payment** — in the drawer: pick *Nequi*, type reference `NEQ-DEMO-1`,
-   *Guardar* → chip becomes "Ref. registrada". Upload a photo as the comprobante
-   → chip becomes "Comprobante subido — por verificar" (amber: the one state
-   that needs a human). Click **Marcar pago verificado** → green, with the
-   timestamp.
-7. **Trigger** — `/customers`, find Camila Rojas. *Total gastado* has grown by
-   exactly the new order's total (from 215.000) and *Último pedido* now reads
-   "hace unos segundos". Back on `/orders`, set that order to *Cancelado*, then
-   reload `/customers`: the total drops back to 215.000. Re-open it to
-   *Entregado* and it climbs again.
-8. **Run sheet** — `/orders` → *Entregas de hoy* (filters to today's delivery
-   date; the URL updates and is shareable) → *Exportar CSV*.
-   `pedidos-<today>.csv` downloads with the eight handoff columns, the filtered
-   rows only, and totals as plain summable numbers.
-9. **Attribute filters** — `/customers` → *Filtros*: "Acepta precio mayorista" =
-   *Sí* → only Juliana Torres. Reset to *Todos*, then "Descuento habitual (%)"
-   min `10` → only Juliana (numeric, not lexicographic: 5 must not sort above
-   15). Min `1` max `20` → Camila and Juliana.
+**`check_catalog` matched the whole query as one `ILIKE`.** The model asks the
+way a customer talks — `"Blusa de Lino Manuela oliva talla M"` — which matches no
+single column. The agent told a live customer that a product sitting in the
+catalog did not exist. Now tokenizes, matches on any token, ranks by hit count.
+Single-character tokens are dropped, and an all-noise query falls back to listing
+the catalog (same as no query).
+
+**`create_order` returned a bare `"Invalid uuid"`.** Several messages after
+`check_catalog`, the model passed `"blusa-lino-manuela"`. Root cause: tool
+results survive across *rounds within one message*, not across messages — so by
+the time the customer says "confirmo", the real ids are gone from context and the
+model invents one. The error now names the recovery and the declaration says the
+id must come from a `check_catalog` result in the same reply. **This is a design
+limit worth a decision — see Question C.**
 
 ---
 
-## 3. Verification run
+## 3. Demo script
 
-| Gate | Result |
+Prerequisites: `supabase start && supabase db reset && pnpm seed:auth`
+(Kong quirk → `docker restart supabase_kong_optiax-crm`), a real
+`GEMINI_API_KEY` in `apps/runtime/.env.local`, and
+`pnpm --filter @optiax/runtime dev`.
+
+`pnpm say` (new, `scripts/say.ts`) posts an arbitrary customer message as a
+signed webhook — `simulate` only replays fixtures verbatim, which cannot drive a
+conversation.
+
+### A. Quote → capture → confirmed order
+
+```bash
+pnpm say "Hola, quiero comprar la blusa de lino Manuela. Soy Valentina Soto, Bogotá, Carrera 7 #70-20, barrio Chapinero" --wa 573015559992 --name "Valentina Soto"
+pnpm say "Talla M, color oliva, quiero 2 unidades" --wa 573015559992
+pnpm say "Sí, todo correcto. Confirmo el pedido" --wa 573015559992
+pnpm say "Cualquier día está bien, no tengo preferencia. Por favor crea el pedido ya" --wa 573015559992
+```
+
+Observed (real `gemini-2.5-flash`):
+
+- Quoted **$89.000 / promo $75.000** — matches the `products` row exactly;
+  `agent_turns.tool_calls` shows `check_catalog` ran first.
+- Recapped the total and **waited for an explicit yes** before ordering
+  (`confirmBeforeCreate` is on for this tenant).
+- Created order `5512c3c3…`, total **150000 COP**, status **Nuevo** (`kind='new'`),
+  `source='agent'`, conversation linked, delivery address captured.
+- Captured name, city, address and **both configured attributes**
+  (`talla_preferida: M`, `barrio_entrega: Chapinero`).
+- `customers.total_spent` → **150000** via the D2 trigger.
+
+Verified through the dashboard's own read path (anon key, signed in as
+`admin@modavalentina.test`, RLS enforced) — `/orders` shows the order with its
+line and `sort_order`, `/customers` shows the updated total and attributes.
+
+### B. Handoff
+
+```bash
+pnpm say "Estoy furiosa, mi pedido anterior llegó roto y nadie me responde. Quiero hablar con una persona ya" --wa 573015559993 --name "Marcela Díaz"
+pnpm say "Hola? sigue ahi?" --wa 573015559993
+```
+
+- `handoff_to_human reason=human_request`, replied with the configured
+  `handoffMessage` verbatim.
+- Conversation: `needs_attention=true`, `bot_paused=true`, `paused_until=NULL`.
+- The follow-up message was **skipped with `bot_paused`** — the bot stays silent
+  once a human owns the conversation.
+
+---
+
+## 4. Checks
+
+| Check | Result |
 |---|---|
-| `pnpm typecheck` | pass (3 packages) |
-| `pnpm lint` | pass |
-| `pnpm test` | pass — 84 shared (39 new), 90 dashboard unit (62 new), 68 runtime |
-| `pnpm db:test` | pass — 221 isolation, 9 runtime integration, 40 dashboard DB (33 new) |
-| `pnpm --filter @optiax/dashboard build` | pass, 14 routes |
-| Authenticated render | `/orders`, `/products`, `/customers` render seeded data as the seeded rep; URL filters apply and exclude correctly; old Spanish routes 404, new ones redirect to `/login` when signed out |
+| `pnpm typecheck` | clean |
+| `pnpm lint` | clean |
+| `pnpm test` | **319** unit (87 shared / 90 dashboard / 142 runtime) |
+| `pnpm db:test` | **221** isolation + **12** runtime integration + **40** dashboard DB |
+| `pnpm --filter @optiax/dashboard build` | clean (used to verify 0.3) |
 
-`db-types.ts` was regenerated and is byte-identical: the migration adds a
-function and a trigger, no table — so the meta-test's RLS/`tenant_id`
-invariants are untouched, exactly as the spec predicted.
+Isolation + meta suites green throughout; 0.4 adds a column to a table that
+already has `tenant_id` and RLS, and no new tables were added.
 
-One test assumption of mine was wrong and got fixed rather than papered over:
-`order_items` inserted in a single statement share a `created_at`, so the
-`(created_at, id)` read order is stable but is not insertion order. See
-Question E.
+Commits, each verified green before the next: 0.1 `47e7c22`, 0.2 `a523327`,
+0.3 `5376012`, 0.4 `b0970ea`, tools `1b4d8d4`, integration tests `a259465`,
+demo fixes `eaa0c9f`.
 
 ---
 
-## 4. Questions for the coordinator
+## 5. Questions for the coordinator
 
-**A. Should `/inicio` be renamed to `/home`?** Both D1 §10.4 and D2 §0.1
-enumerate five routes and omit it, so I left it — but the stated principle
-("route paths are English, permanently") plainly covers it, and it is now the
-only Spanish path in the app. It is a placeholder with no inbound links, so
-renaming costs nothing until the D-phase home screen exists. I would rename it;
-I didn't, because ratified enumerations aren't mine to extend.
+**A. `order_items.sort_order` in the dashboard composer.** D2 §7.E says the
+composer sets it "in the same migration's wake"; R2 §0.4 says "later" and the
+brief forbids dashboard changes. I followed R2. Manually created orders
+therefore get `sort_order = 0` on every line until a D-phase session writes the
+index. Confirm that is the intended sequencing, or should D3 pick it up
+explicitly?
 
-**B. Do we need `orders.verified_by`?** The spec anticipated this. "Marcar pago
-verificado" records *when* but not *who*, because no user column exists. With
-several reps sharing a tenant, "who cleared this payment" is the first question
-asked when money goes missing. Candidate additive migration:
-`verified_by uuid references public.profiles(id)`. Not done — a second schema
-change, and the spec allowed exactly one.
+**B. `capture_lead` → `capture_customer`.** The compiler emitted `capture_lead`,
+which matches nothing in the schema; the architecture doc §2 uses the same old
+name. I renamed to `capture_customer` (R2 spec §3, and the table is `customers`).
+Confirm, and note the architecture doc still needs the same correction — I did
+not edit it, since it is a source document rather than a spec.
 
-**C. Should order items be editable after creation?** Today they are not
-(assumption 23). The realistic case is "customer added a drink" ten minutes
-later, and the current answer — cancel and re-create — loses the order's history
-and its conversation link. Straightforward as a follow-up: the total recomputes
-from items and the trigger handles the rest.
+**C. Tool results do not survive across inbound messages — is that right?**
+Today the model sees prior *messages* but not prior *tool results*, so it cannot
+recall a `product_id` it fetched two messages ago. It must re-call
+`check_catalog` within the same reply. That is cheap and always-fresh (a price
+edited in the dashboard is live immediately), but it caused the live failure in
+§2 and costs an extra round on most ordering conversations. Options: (i) keep as
+is, now that the error text steers recovery; (ii) persist a compact tool-result
+summary into `messages` as `system` rows so history carries it; (iii) let
+`create_order` accept a product *name* and resolve server-side. I recommend (i)
+for R2 and revisiting with R3's eval data, since (ii) grows the prompt every turn
+and (iii) reintroduces ambiguity the uuid removes.
 
-**D. When does the hardcoded Colombia timezone stop being fine?**
-`America/Bogota` and `-05:00` are baked into `lib/format.ts` and the orders
-query translation, while `tenants.timezone` exists and is populated. Both seeded
-tenants are Colombian and Colombia has no DST, so nothing is wrong today. The
-first non-Colombian tenant makes "Entregas de hoy" wrong by up to a day. Worth a
-small dedicated pass (thread `tenants.timezone` through the date helpers) before
-that onboarding rather than after.
+**D. Should `handoff_to_human` also fire automatically on `payment_proof`?**
+Today an inbound image reaches the model as `[imagen]` and the model decides,
+guided by the escalation config. That respects §5's "wire this minimally", but
+means a payment proof arriving while the agent is confident could go
+un-escalated. Deterministic escalation (image + `payment_proof` configured →
+always hand off) is a small change if you want the guarantee rather than the
+tendency.
 
-**E. `order_items` has no line-order column.** Lines inserted in one statement
-share a `created_at`, so read order is stable but arbitrary rather than the order
-the owner typed them. Visible in the items summary and in the CSV run sheet. A
-`sort_order integer` column would fix it; out of scope here.
-
-**F. Confirming the v1 `total_spent` rule.** Only `cancelled` is excluded, so
-`awaiting_payment` orders count as "spent". That is what the spec ratified and
-what the migration comment records as revisitable. Flagging it because the
-customers list labels the column "Total gastado", which an owner may well read
-as "money actually received" — relabelling may be cheaper than changing the rule.
-
-**G. Status transitions are unrestricted, as ratified** (§3) — an order can go
-from *Entregado* straight back to *Nuevo*. §3 asked for a note if this felt
-wrong in practice; it didn't. Building against it was fine, and the alternative
-stops owners fixing their own mistakes. Noting only to close the loop.
+**E. The 4-round ceiling falls back to the handoff message.** It is the only
+configured message guaranteed to exist and it is honest ("a person will help
+you"), but it does not flag `needs_attention`, so nobody is actually summoned.
+Should the ceiling also set `needs_attention`, making it a real handoff rather
+than a handoff-flavored apology?
