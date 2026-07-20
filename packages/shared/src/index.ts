@@ -53,6 +53,36 @@ export {
 } from './schemas/customer.js';
 
 export {
+  PRODUCT_MAX_IMAGES,
+  PRODUCT_IMAGE_MAX_EDGE,
+  ProductSchema,
+  ProductCategorySchema,
+  effectivePrice,
+  type Product,
+  type ProductCategory,
+} from './schemas/product.js';
+
+export {
+  ORDER_MAX_ITEMS,
+  PAYMENT_STATES,
+  OrderItemInputSchema,
+  OrderCreateSchema,
+  OrderUpdateSchema,
+  OrderStatusUpdateSchema,
+  OrderPaymentUpdateSchema,
+  OrderLogisticsUpdateSchema,
+  computeOrderTotal,
+  paymentState,
+  type OrderItemInput,
+  type OrderCreate,
+  type OrderUpdate,
+  type OrderStatusUpdate,
+  type OrderPaymentUpdate,
+  type OrderLogisticsUpdate,
+  type PaymentState,
+} from './schemas/order.js';
+
+export {
   AGENT_SKIP_REASONS,
   AgentSkipReasonSchema,
   type AgentSkipReason,

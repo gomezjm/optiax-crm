@@ -8,7 +8,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Upload } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { t } from '@/i18n/index';
@@ -20,7 +20,7 @@ import {
   type SortField,
 } from '@/lib/customers/filter-model';
 import type { AttributeDefRow, CustomerListItem, CustomersPage, TagRow } from '@/lib/customers/types';
-import { fetchMatchingCustomerIds } from '@/lib/customers/list';
+import { fetchCustomerById, fetchMatchingCustomerIds } from '@/lib/customers/list';
 import { MASS_EDIT_MAX_ROWS } from '@/lib/customers/mass-edit';
 import { Button } from '@/components/ui/button';
 import { FilterBar } from './filter-bar';
@@ -44,6 +44,7 @@ export function CustomersClient({
   page: CustomersPage;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -55,6 +56,25 @@ export function CustomersClient({
     setSelected(new Set());
     setAllMatchingIds(null);
   }, [page]);
+
+  /**
+   * `?customer=<id>` opens that customer's drawer directly — the deep link the
+   * orders screen links to. The id is fetched rather than looked up in `page`
+   * because the customer usually isn't on the current filtered page at all.
+   */
+  const deepLinkedCustomerId = searchParams.get('customer');
+  useEffect(() => {
+    if (!deepLinkedCustomerId) return;
+    let cancelled = false;
+    void fetchCustomerById(supabase, deepLinkedCustomerId).then((found) => {
+      if (!cancelled && found) {
+        setDrawer({ mode: 'edit', item: { customer: found.customer, tags: found.tags } });
+      }
+    }, () => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [deepLinkedCustomerId, supabase]);
 
   function navigate(next: CustomerFilterModel) {
     const params = serializeFilterModel(next);

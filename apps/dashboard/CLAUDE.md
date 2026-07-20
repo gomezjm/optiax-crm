@@ -1,9 +1,12 @@
 # apps/dashboard
 
 Next.js (App Router, `src/`). Screens: `/login`, `/inbox` (Realtime thread),
-`/customers` (+ `/customers/import`) — all authenticated screens live in the
-`src/app/(app)/` route group, which provides the sidebar shell. Placeholder
-routes exist for the remaining nav items.
+`/customers` (+ `/customers/import`), `/products`, `/orders` — all
+authenticated screens live in the `src/app/(app)/` route group, which provides
+the sidebar shell. Placeholder routes exist for the remaining nav items.
+
+**Route paths are English, permanently** (D1 §10.4) — Spanish lives in
+`es.json` labels, never in URLs.
 
 UI foundation (since D1): Tailwind v4 + shadcn/ui (`components.json`, copied
 components in `src/components/ui/`, `@/*` import alias). Add components with
@@ -23,10 +26,14 @@ to satisfy the strict tsconfig rather than loosening it. Toasts via sonner
 - Guard authenticated routes in `src/middleware.ts` (session refresh lives in
   `src/lib/supabase/middleware.ts`); new routes must be added to its matcher.
 - Data access for a screen goes through a typed query module under `src/lib/`
-  (see `src/lib/customers/` — filter model, pure query-plan translation,
-  mutations), never inline in components. Unit tests in `test/unit/`,
-  DB-backed tests (seeded local stack, part of root `pnpm db:test`) in
-  `test/db/`.
+  (see `src/lib/customers/`, `src/lib/products/`, `src/lib/orders/` — filter
+  model, pure query-plan translation, list reads, mutations), never inline in
+  components. The filter model round-trips through URL search params so
+  filtered views are shareable. Unit tests in `test/unit/`, DB-backed tests
+  (seeded local stack, part of root `pnpm db:test`) in `test/db/`.
+- Storage objects live under `{tenant_id}/…` prefixes in the private `media`
+  bucket; read them through `src/lib/media.ts` (signed URLs), never by
+  building a public URL.
 - Render config validation errors from `validateAgentConfig`'s structured
   `path`+`message` list (when the configurator arrives).
 

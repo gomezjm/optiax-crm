@@ -51,3 +51,15 @@ Revisitable-later note in the migration comment: whether `awaiting_payment` orde
 - [ ] `pnpm typecheck && pnpm lint && pnpm test && pnpm db:test` + production build green
 - [ ] Every UI string in `es.json`; no service key; only the §4 migration touches the DB
 - [ ] `SESSION_NOTES.md`: numbered assumptions, demo script, questions
+
+## 7. Addendum — ratified decisions + coordinator answers (2026-07-20)
+
+All 31 assumptions ratified — including the trigger-forced seed reconciliation (the added historical/cancelled orders and the fixed María Fernanda `total_spent=0` bug are correct; a seed that lies about its own trigger output is worse than a changed literal) and the Colombian price-parsing fix (`price-input.ts` round-tripping what `formatMoney` prints is exactly right). Answers to the seven questions:
+
+- **A. Rename `/inicio` → `/home`: yes.** The principle (English routes) governs; the enumerations were illustrative, not exhaustive. The agent was right not to extend a ratified list unilaterally — but the answer is rename. **Carry to D3** (next dashboard session); trivial, no inbound links. (Not R2 — R2 is runtime-only.)
+- **B. `orders.verified_by`: approved**, additive `uuid references profiles(id)`, nullable. **Deferred to D4** (team-roles/attribution batch — "who did what" belongs with the multi-user story; no production data lost meanwhile).
+- **C. Editable order items post-creation: yes, later.** Backlogged (Phase 3+ polish). Cancel-and-recreate is an acceptable stopgap; when built, the total recomputes via the §4 trigger for free.
+- **D. Hardcoded `America/Bogota`: latent bug, fix before first non-Colombian tenant.** R1 already threads `tenants.timezone` correctly in the runtime — use it as the reference. **Added to Phase 4 onboarding-prep** (a dedicated pass threading `tenants.timezone` through the dashboard date helpers). Until then, correct for both Colombian seed tenants.
+- **E. `order_items.sort_order`: approved**, additive integer. **Carried to R2** — R2 writes order_items via `create_order`, so it adds the column + populates it in one place. Dashboard composer sets it on manual creation in the same migration's wake.
+- **F. `total_spent` rule stays; relabel the column** (Juan's call): keep summing all non-cancelled orders (self-healing, simple), rename the customers-list label from "Total gastado" to **"Total en pedidos"** (order value, not cash received). **Carried to D3** — it's an `es.json` label change only, no logic (not R2, which is runtime-only). The migration comment's "revisitable" note is now resolved: rule confirmed, semantics fixed via label.
+- **G. Unrestricted status transitions: confirmed canonical** — owners must be able to fix their own mistakes. No transition engine.
