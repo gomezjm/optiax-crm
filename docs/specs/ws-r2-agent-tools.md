@@ -67,3 +67,18 @@ The compiler (phase-0 §6) already emits tool-usage instructions and confines te
 - [ ] `COMPILER_VERSION` bumped iff the prompt changed; snapshots updated
 - [ ] `pnpm typecheck && pnpm lint && pnpm test && pnpm db:test` green
 - [ ] `SESSION_NOTES.md`: numbered assumptions, demo script, questions
+
+## 8. Addendum — ratified decisions + coordinator answers (2026-07-20)
+
+All session assumptions ratified. Two live-demo saves worth recording as canonical: the **Zod↔JSON-schema parity test** stays (it caught D2's nullable-but-required delivery fields breaking every model call — declared-optional and Zod-nullable legitimately diverge; the parity test guards the seam), and **`check_catalog` must tokenize** the query (whole-string `ILIKE` failed on natural phrasing like "Blusa de Lino Manuela oliva talla M" — a real customer would be told a stocked product doesn't exist). `COMPILER_VERSION` is now **1.1.0** (it was emitting a phantom `capture_lead`); see recompile note below.
+
+Answers to the five questions:
+
+- **A. `order_items.sort_order` in the manual composer → D3.** R2 correctly followed its brief (no dashboard changes); manual orders get `sort_order = 0` until D3 sets it. Confirmed sequencing.
+- **B. `capture_lead` → `capture_customer`: confirmed.** The architecture doc has now been corrected by the coordinator (source-doc fix, lines 70 + 107) — the agent was right not to touch it itself.
+- **C. Tool results not surviving across messages: keep (i) for now, decide with R3 eval data.** Always-fresh + cheap, error-text steers recovery. R3's eval harness measures how often product-id recall fumbles; only then do we weigh (ii) persisted result summaries vs (iii) name-resolving `create_order`. **Routed to R3.**
+- **D. `payment_proof` escalation stays model-decided — do NOT make blanket image→handoff deterministic.** A blanket rule over-fires on every product photo a customer sends. The right eventual heuristic is narrower: *image + an open `awaiting_payment` order on the conversation → deterministic handoff*. **Routed to R3** as an eval metric (measure payment-proof escalation rate) + candidate scoped-deterministic rule — not built blind now.
+- **E. 4-round ceiling must set `needs_attention`: confirmed a defect.** Sending the handoff message without flagging attention promises a human and summons none. **Fixed as R3's mandatory first task**, before any eval work, with an eval that asserts a ceiling-hit conversation ends `needs_attention = true` + paused.
+
+### Deploy/ops note — compiler recompile
+`COMPILER_VERSION` 1.0.0 → 1.1.0 means every existing `prompt_versions` row is stale. Locally this self-heals: `supabase db reset && pnpm seed:auth` recompiles at seed time (Phase 0 decision 21). A **"recompile all published prompts on compiler bump"** operation for real tenants is owed — assigned to D3 (publish flow) or Phase 5, tracked in the roadmap. Until a hosted tenant exists, reseeding covers it.

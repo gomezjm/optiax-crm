@@ -67,7 +67,7 @@
 
 ### Gemini API — agent intelligence
 - Called per message with: compiled system prompt (tenant's version) + conversation history + function declarations.
-- **Function calling** (declarations generated from tenant config): `capture_lead`, `handoff_to_human`, `check_catalog`, `book_or_remind` (future).
+- **Function calling** (declarations generated from tenant config): `capture_customer`, `create_order`, `check_catalog`, `handoff_to_human`; `book_or_remind` (future). *(Superseded 2026-07-20: this doc originally said `capture_lead`; the implemented tool is `capture_customer`, writing to `customers` — see R2 spec §3.)*
 - Model strategy: Flash-class for routine turns, Pro-class where quality matters; revisit as pricing/models evolve. Use **context caching** on the system prompt — it's identical across all of a tenant's conversations.
 - Integrate through a thin provider-agnostic adapter (one module owning the request/response mapping), so the runtime never depends on Gemini-specific payload shapes and you can swap or mix model providers per tenant later.
 - No customer PII in prompts beyond what the conversation itself contains.
@@ -104,7 +104,7 @@ RLS policy on every table: `tenant_id = auth tenant claim`.
 2. Worker dequeues → resolves tenant by `phone_number_id` → dedupe on `wa_message_id`.
 3. Load conversation (create if new); if `bot_paused`, persist message and stop.
 4. Assemble: published prompt version + last N messages + function declarations from config.
-5. Gemini API call → response text and/or function calls (`capture_lead` writes to `leads`).
+5. Gemini API call → response text and/or function calls (`capture_customer` writes to `customers`).
 6. Send reply via 360dialog Messaging API; persist both messages; update `last_message_at` (24h-window tracking).
 
 ### Owner intervenes (coexistence)
