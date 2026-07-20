@@ -1,17 +1,16 @@
 /**
- * /customers — directory (WS-D1 §2). Server component: parses URL filters,
+ * /orders — order management (WS-D2 §2). Server component: parses URL filters,
  * runs the tenant-scoped queries (anon key + session; RLS scopes everything)
- * and hands the data to the interactive client. The URL is the single source
- * of truth for search/filters/sort/page, so views are shareable.
+ * and hands the data to the interactive client.
  */
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { toSearchParams } from '@/lib/search-params';
-import { parseFilterModel } from '@/lib/customers/filter-model';
-import { fetchCustomersPage, fetchEnabledAttributeDefs, fetchTags } from '@/lib/customers/list';
-import { CustomersClient } from './customers-client';
+import { parseOrderFilterModel } from '@/lib/orders/filter-model';
+import { fetchOrderMasters, fetchOrdersPage } from '@/lib/orders/list';
+import { OrdersClient } from './orders-client';
 
-export default async function CustomersPage({
+export default async function OrdersPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -23,23 +22,21 @@ export default async function CustomersPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, { data: tenant }, defs, tags] = await Promise.all([
+  const [{ data: profile }, { data: tenant }, masters] = await Promise.all([
     supabase.from('profiles').select('tenant_id').eq('id', user.id).single(),
     supabase.from('tenants').select('currency').single(),
-    fetchEnabledAttributeDefs(supabase),
-    fetchTags(supabase),
+    fetchOrderMasters(supabase),
   ]);
   if (!profile) redirect('/login');
 
-  const model = parseFilterModel(toSearchParams(rawParams), defs);
-  const page = await fetchCustomersPage(supabase, model);
+  const model = parseOrderFilterModel(toSearchParams(rawParams));
+  const page = await fetchOrdersPage(supabase, model);
 
   return (
-    <CustomersClient
+    <OrdersClient
       tenantId={profile.tenant_id}
       currency={tenant?.currency ?? 'COP'}
-      defs={defs}
-      tags={tags}
+      masters={masters}
       model={model}
       page={page}
     />

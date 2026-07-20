@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * Sidebar nav (WS-D1 §1). Live routes: Bandeja + Clientes. The rest link to
- * "Próximamente" placeholder pages so the information architecture is fixed
- * from day one and later sessions only fill in content.
+ * Sidebar nav (WS-D1 §1). Live routes: Bandeja, Clientes, Pedidos, Productos.
+ * The rest link to "Próximamente" placeholder pages so the information
+ * architecture is fixed from day one and later sessions only fill in content.
+ * Paths are English permanently (D1 §10.4); labels come from `es.json`.
  */
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -43,11 +44,11 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/inicio', labelKey: 'nav.home', icon: Home, live: false },
   { href: '/inbox', labelKey: 'nav.inbox', icon: MessageSquare, live: true },
   { href: '/customers', labelKey: 'nav.customers', icon: Users, live: true },
-  { href: '/pedidos', labelKey: 'nav.orders', icon: Package, live: false },
-  { href: '/productos', labelKey: 'nav.products', icon: Shirt, live: false },
-  { href: '/campanas', labelKey: 'nav.campaigns', icon: Megaphone, live: false },
-  { href: '/agente', labelKey: 'nav.agent', icon: Bot, live: false },
-  { href: '/configuracion', labelKey: 'nav.settings', icon: Settings, live: false },
+  { href: '/orders', labelKey: 'nav.orders', icon: Package, live: true },
+  { href: '/products', labelKey: 'nav.products', icon: Shirt, live: true },
+  { href: '/campaigns', labelKey: 'nav.campaigns', icon: Megaphone, live: false },
+  { href: '/agent', labelKey: 'nav.agent', icon: Bot, live: false },
+  { href: '/settings', labelKey: 'nav.settings', icon: Settings, live: false },
 ];
 
 export function AppSidebar({

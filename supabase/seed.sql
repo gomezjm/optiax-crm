@@ -45,7 +45,12 @@ cross join (values
   ('cumpleanos', 'Cumpleaños', 'date', 'null'),
   ('metodo_pago_preferido', 'Método de pago preferido', 'select',
    '["nequi","daviplata","bancolombia","efectivo"]'),
-  ('barrio_entrega', 'Barrio de entrega', 'text', 'null')
+  ('barrio_entrega', 'Barrio de entrega', 'text', 'null'),
+  -- One boolean + one number def per tenant (D1 §10.5): both attribute types
+  -- had no seeded example, so their filter paths went unproven against
+  -- PostgREST. The dashboard DB suite now exercises them.
+  ('acepta_mayorista', 'Acepta precio mayorista', 'boolean', 'null'),
+  ('descuento_pct', 'Descuento habitual (%)', 'number', 'null')
 ) as a(key, label, type, options);
 
 insert into public.attribute_defs (tenant_id, key, label, type, options, enabled, is_preset) values
@@ -138,30 +143,39 @@ insert into public.products (id, tenant_id, category_id, name, description, pric
 
 -- ── Customers ────────────────────────────────────────────────────────────────
 
+-- `phone` is stored as bare digits on every write path (D1 §10.1); the UI
+-- display-formats on read. `total_spent` / `last_order_at` are owned by the
+-- orders trigger (D2 §4) — the literals below are what it recomputes from the
+-- seeded orders, kept in the file so the intent is readable, not authoritative.
 insert into public.customers
   (id, tenant_id, wa_id, phone, name, email, address, city, gender, age_group,
    attributes, consent_status, source, total_spent, last_order_at, last_message_at)
 values
   ('aa000000-0020-4000-8000-000000000001', 'aa000000-0001-4000-8000-000000000001',
-   '573015550101', '+57 301 555 0101', 'Camila Rojas', 'camila.rojas@example.test',
+   '573015550101', '573015550101', 'Camila Rojas', 'camila.rojas@example.test',
    'Cra 43A #18-95 apto 502', 'Medellín', 'femenino', '25-34',
-   '{"talla_preferida": "M", "barrio_entrega": "El Poblado", "metodo_pago_preferido": "nequi"}',
-   'opted_in', 'agent', 224000, now() - interval '2 days', now() - interval '2 hours'),
+   '{"talla_preferida": "M", "barrio_entrega": "El Poblado", "metodo_pago_preferido": "nequi",
+     "acepta_mayorista": false, "descuento_pct": 5}',
+   'opted_in', 'agent', 215000, now() - interval '2 days', now() - interval '2 hours'),
   ('aa000000-0020-4000-8000-000000000002', 'aa000000-0001-4000-8000-000000000001',
-   '573165550102', '+57 316 555 0102', 'Juliana Torres', null,
+   '573165550102', '573165550102', 'Juliana Torres', null,
    null, 'Envigado', 'femenino', '35-44',
-   '{"talla_preferida": "S", "cumpleanos": "1988-11-02"}',
-   'opted_in', 'coexistence_sync', 468000, now() - interval '41 days', now() - interval '40 days'),
+   '{"talla_preferida": "S", "cumpleanos": "1988-11-02",
+     "acepta_mayorista": true, "descuento_pct": 15}',
+   'opted_in', 'coexistence_sync', 452000, now() - interval '41 days', now() - interval '40 days'),
   ('bb000000-0020-4000-8000-000000000001', 'bb000000-0001-4000-8000-000000000001',
-   '573125550202', '+57 312 555 0202', 'Andrés Pardo', 'apardo@empresa.test',
+   '573125550202', '573125550202', 'Andrés Pardo', 'apardo@empresa.test',
    'Cl 45 #13-40 oficina 301', 'Bogotá', 'masculino', '35-44',
-   '{"barrio_entrega": "Teusaquillo", "restricciones_alimentarias": "sin cerdo"}',
+   '{"barrio_entrega": "Teusaquillo", "restricciones_alimentarias": "sin cerdo",
+     "acepta_mayorista": true, "descuento_pct": 10}',
    'opted_in', 'agent', 396000, now() - interval '1 day', now() - interval '3 hours'),
+  -- No boolean/number attributes at all: proves those filters exclude rows
+  -- where the key is absent, not just rows where it is false/out of range.
   ('bb000000-0020-4000-8000-000000000002', 'bb000000-0001-4000-8000-000000000001',
-   '573205550203', '+57 320 555 0203', 'María Fernanda López', null,
+   '573205550203', '573205550203', 'María Fernanda López', null,
    'Cra 15 #85-24', 'Bogotá', 'femenino', '25-34',
    '{"barrio_entrega": "Chapinero", "metodo_pago_preferido": "daviplata"}',
-   'unknown', 'manual', 0, null, now() - interval '5 days');
+   'unknown', 'manual', 32000, now() - interval '3 days', now() - interval '5 days');
 
 -- ── Tags ─────────────────────────────────────────────────────────────────────
 
@@ -300,10 +314,13 @@ insert into public.messages (tenant_id, conversation_id, wa_message_id, directio
 
 -- ── Orders ───────────────────────────────────────────────────────────────────
 
+-- `created_at` is explicit here: the D2 trigger derives `customers.last_order_at`
+-- from it, so leaving it to default(now()) would flatten every customer's order
+-- history to "just now".
 insert into public.orders
   (id, tenant_id, customer_id, conversation_id, status_id, total, currency, payment_method_id,
    payment_reference, payment_proof_media_path, payment_verified_at, delivery_address, delivery_date,
-   driver_notes, source)
+   driver_notes, source, created_at)
 values
   -- A: Camila's blusa — proof uploaded, awaiting manual verification.
   ('aa000000-0040-4000-8000-000000000001', 'aa000000-0001-4000-8000-000000000001',
@@ -311,25 +328,57 @@ values
    (select id from public.order_statuses where tenant_id = 'aa000000-0001-4000-8000-000000000001' and kind = 'awaiting_verification'),
    75000, 'COP', 'aa000000-00a0-4000-8000-000000000001',
    'NEQ-778899', 'aa000000-0001-4000-8000-000000000001/conversations/aa000000-0030-4000-8000-000000000001/comprobante-1.jpg',
-   null, 'Cra 43A #18-95 apto 502, El Poblado, Medellín', current_date + 2, 'Torre 2, dejar en portería si no contesta', 'agent'),
+   null, 'Cra 43A #18-95 apto 502, El Poblado, Medellín', current_date + 2, 'Torre 2, dejar en portería si no contesta', 'agent',
+   now() - interval '2 days'),
   -- A: Juliana's jeans — delivered weeks ago.
   ('aa000000-0040-4000-8000-000000000002', 'aa000000-0001-4000-8000-000000000001',
    'aa000000-0020-4000-8000-000000000002', 'aa000000-0030-4000-8000-000000000002',
    (select id from public.order_statuses where tenant_id = 'aa000000-0001-4000-8000-000000000001' and kind = 'delivered'),
    248000, 'COP', 'aa000000-00a0-4000-8000-000000000002',
-   'BC-445566', null, now() - interval '41 days', 'Cl 38 sur #42-11, Envigado', current_date - 40, null, 'agent'),
+   'BC-445566', null, now() - interval '41 days', 'Cl 38 sur #42-11, Envigado', current_date - 40, null, 'agent',
+   now() - interval '41 days'),
+  -- A: Camila's earlier delivered order — the history behind her total_spent.
+  ('aa000000-0040-4000-8000-000000000003', 'aa000000-0001-4000-8000-000000000001',
+   'aa000000-0020-4000-8000-000000000001', null,
+   (select id from public.order_statuses where tenant_id = 'aa000000-0001-4000-8000-000000000001' and kind = 'delivered'),
+   140000, 'COP', 'aa000000-00a0-4000-8000-000000000001',
+   'NEQ-551122', null, now() - interval '35 days', 'Cra 43A #18-95 apto 502, El Poblado, Medellín', current_date - 34, null, 'agent',
+   now() - interval '35 days'),
+  -- A: Camila cancelled this one — excluded from total_spent by the D2 trigger.
+  ('aa000000-0040-4000-8000-000000000004', 'aa000000-0001-4000-8000-000000000001',
+   'aa000000-0020-4000-8000-000000000001', null,
+   (select id from public.order_statuses where tenant_id = 'aa000000-0001-4000-8000-000000000001' and kind = 'cancelled'),
+   145000, 'COP', null,
+   null, null, null, 'Cra 43A #18-95 apto 502, El Poblado, Medellín', current_date - 9, 'Cliente canceló: talla equivocada', 'agent',
+   now() - interval '10 days'),
+  -- A: Juliana's oldest delivered order.
+  ('aa000000-0040-4000-8000-000000000005', 'aa000000-0001-4000-8000-000000000001',
+   'aa000000-0020-4000-8000-000000000002', null,
+   (select id from public.order_statuses where tenant_id = 'aa000000-0001-4000-8000-000000000001' and kind = 'delivered'),
+   204000, 'COP', 'aa000000-00a0-4000-8000-000000000002',
+   'BC-220044', null, now() - interval '90 days', 'Cl 38 sur #42-11, Envigado', current_date - 89, null, 'manual',
+   now() - interval '90 days'),
   -- B: Andrés's 15 lunches — awaiting payment.
   ('bb000000-0040-4000-8000-000000000001', 'bb000000-0001-4000-8000-000000000001',
    'bb000000-0020-4000-8000-000000000001', 'bb000000-0030-4000-8000-000000000001',
    (select id from public.order_statuses where tenant_id = 'bb000000-0001-4000-8000-000000000001' and kind = 'awaiting_payment'),
    270000, 'COP', 'bb000000-00a0-4000-8000-000000000001',
-   null, null, null, 'Cl 45 #13-40 oficina 301, Teusaquillo, Bogotá', current_date + 1, 'Preguntar por Andrés en recepción. Uno sin cerdo.', 'agent'),
+   null, null, null, 'Cl 45 #13-40 oficina 301, Teusaquillo, Bogotá', current_date + 1, 'Preguntar por Andrés en recepción. Uno sin cerdo.', 'agent',
+   now() - interval '1 day'),
   -- B: manual walk-in order, delivered.
   ('bb000000-0040-4000-8000-000000000002', 'bb000000-0001-4000-8000-000000000001',
    'bb000000-0020-4000-8000-000000000002', null,
    (select id from public.order_statuses where tenant_id = 'bb000000-0001-4000-8000-000000000001' and kind = 'delivered'),
    32000, 'COP', 'bb000000-00a0-4000-8000-000000000003',
-   null, null, now() - interval '3 days', 'Cra 15 #85-24, Chapinero, Bogotá', current_date - 3, null, 'manual');
+   null, null, now() - interval '3 days', 'Cra 15 #85-24, Chapinero, Bogotá', current_date - 3, null, 'manual',
+   now() - interval '3 days'),
+  -- B: Andrés's earlier office order — the history behind his total_spent.
+  ('bb000000-0040-4000-8000-000000000003', 'bb000000-0001-4000-8000-000000000001',
+   'bb000000-0020-4000-8000-000000000001', null,
+   (select id from public.order_statuses where tenant_id = 'bb000000-0001-4000-8000-000000000001' and kind = 'delivered'),
+   126000, 'COP', 'bb000000-00a0-4000-8000-000000000001',
+   'NEQ-901234', null, now() - interval '20 days', 'Cl 45 #13-40 oficina 301, Teusaquillo, Bogotá', current_date - 20, null, 'agent',
+   now() - interval '20 days');
 
 insert into public.order_items (tenant_id, order_id, product_id, description, qty, unit_price) values
   ('aa000000-0001-4000-8000-000000000001', 'aa000000-0040-4000-8000-000000000001',
@@ -345,7 +394,20 @@ insert into public.order_items (tenant_id, order_id, product_id, description, qt
   ('bb000000-0001-4000-8000-000000000001', 'bb000000-0040-4000-8000-000000000002',
    'bb000000-0091-4000-8000-000000000002', 'Bandeja paisa completa', 1, 28000),
   ('bb000000-0001-4000-8000-000000000001', 'bb000000-0040-4000-8000-000000000002',
-   'bb000000-0091-4000-8000-000000000006', 'Jugo natural de lulo (litro)', 1, 9000);
+   'bb000000-0091-4000-8000-000000000006', 'Jugo natural de lulo (litro)', 1, 9000),
+  -- Items for the historical orders above (totals must match orders.total).
+  ('aa000000-0001-4000-8000-000000000001', 'aa000000-0040-4000-8000-000000000003',
+   'aa000000-0091-4000-8000-000000000002', 'Blusa satinada Emilia — talla M', 1, 95000),
+  ('aa000000-0001-4000-8000-000000000001', 'aa000000-0040-4000-8000-000000000003',
+   'aa000000-0091-4000-8000-000000000007', 'Collar artesanal Wayuu', 1, 45000),
+  ('aa000000-0001-4000-8000-000000000001', 'aa000000-0040-4000-8000-000000000004',
+   'aa000000-0091-4000-8000-000000000006', 'Vestido camisero Lucía — talla M', 1, 145000),
+  ('aa000000-0001-4000-8000-000000000001', 'aa000000-0040-4000-8000-000000000005',
+   'aa000000-0091-4000-8000-000000000005', 'Vestido midi Catalina — talla S', 1, 159000),
+  ('aa000000-0001-4000-8000-000000000001', 'aa000000-0040-4000-8000-000000000005',
+   'aa000000-0091-4000-8000-000000000007', 'Collar artesanal Wayuu', 1, 45000),
+  ('bb000000-0001-4000-8000-000000000001', 'bb000000-0040-4000-8000-000000000003',
+   'bb000000-0091-4000-8000-000000000001', 'Almuerzo ejecutivo — mixto', 7, 18000);
 
 -- ── Auto-reply rules ────────────────────────────────────────────────────────
 

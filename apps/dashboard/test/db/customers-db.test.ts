@@ -216,6 +216,91 @@ describe('mass edit batch', () => {
   });
 });
 
+describe('phone normalization on manual entry (WS-D2 carry-over §0.2)', () => {
+  it('manual creation stores bare digits even when typed with formatting', async () => {
+    const digits = randomPhone();
+    const formatted = `+57 ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+
+    const created = await createCustomer(rep, TENANT_A, {
+      name: `Formateada ${digits}`,
+      phone: formatted,
+      email: null,
+      address: null,
+      city: null,
+      gender: null,
+      age_group: null,
+      consent_status: 'unknown',
+      attributes: {},
+    });
+    if (created.outcome !== 'created') throw new Error('setup failed: duplicate');
+    createdCustomerIds.push(created.customer.id);
+
+    // Stored as digits — what `import` already did, now on every path.
+    expect(created.customer.phone).toBe(digits);
+  });
+
+  it('editing an existing customer re-normalizes the phone too', async () => {
+    const digits = randomPhone();
+    const created = await createCustomer(rep, TENANT_A, {
+      name: `Editable ${digits}`,
+      phone: digits,
+      email: null,
+      address: null,
+      city: null,
+      gender: null,
+      age_group: null,
+      consent_status: 'unknown',
+      attributes: {},
+    });
+    if (created.outcome !== 'created') throw new Error('setup failed: duplicate');
+    createdCustomerIds.push(created.customer.id);
+
+    const updated = await updateCustomer(rep, created.customer.id, {
+      name: `Editable ${digits}`,
+      phone: `(${digits.slice(2, 5)}) ${digits.slice(5, 8)}-${digits.slice(8)}`,
+      email: null,
+      address: null,
+      city: null,
+      gender: null,
+      age_group: null,
+      consent_status: 'unknown',
+      attributes: {},
+    });
+    // The country prefix was not typed back, so digits are what was entered.
+    expect(updated.phone).toBe(digits.slice(2));
+  });
+
+  it('a formatted phone still matches a digit-stored customer for dedupe', async () => {
+    const digits = randomPhone();
+    const created = await createCustomer(rep, TENANT_A, {
+      name: `Dedupe ${digits}`,
+      phone: digits,
+      email: null,
+      address: null,
+      city: null,
+      gender: null,
+      age_group: null,
+      consent_status: 'unknown',
+      attributes: {},
+    });
+    if (created.outcome !== 'created') throw new Error('setup failed: duplicate');
+    createdCustomerIds.push(created.customer.id);
+
+    const again = await createCustomer(rep, TENANT_A, {
+      name: 'Otra Persona',
+      phone: `+57 ${digits.slice(2, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`,
+      email: null,
+      address: null,
+      city: null,
+      gender: null,
+      age_group: null,
+      consent_status: 'unknown',
+      attributes: {},
+    });
+    expect(again.outcome).toBe('duplicate');
+  });
+});
+
 describe('rep role surface', () => {
   it('rep can update customers (RLS + grants)', async () => {
     const phone = randomPhone();
@@ -258,8 +343,9 @@ describe('rep role surface', () => {
   });
 
   it('attribute, tag and metric filters translate to working PostgREST queries', async () => {
-    // Seed: Camila talla M / tag Nueva / spent 224000; Juliana talla S /
-    // tag VIP / spent 468000 / cumpleanos 1988-11-02.
+    // Seed: Camila talla M / tag Nueva / spent 215000; Juliana talla S /
+    // tag VIP / spent 452000 / cumpleanos 1988-11-02. Both totals are derived
+    // by the D2 orders trigger from the seeded orders, not literals.
     const byTalla = await fetchCustomersPage(rep, {
       attributes: [{ key: 'talla_preferida', type: 'select', value: 'M' }],
     });

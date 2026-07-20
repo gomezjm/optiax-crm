@@ -22,10 +22,11 @@ export interface PhoneIndexEntry {
 }
 
 /**
- * Phones are stored as entered (seed data is formatted, wa_ids are bare
- * digits), so duplicate checks normalize client-side: fetch the tenant's
- * (id, name, phone, wa_id) — a few small columns, paged — and index by digit
- * string. Fine at MVP scale; revisit alongside the pagination upgrade.
+ * Phones are stored as bare digits on every write path (D1 §10.1), but rows
+ * predating that rule may still hold formatted text, so duplicate checks
+ * normalize client-side anyway: fetch the tenant's (id, name, phone, wa_id) —
+ * a few small columns, paged — and index by digit string. Fine at MVP scale;
+ * revisit alongside the pagination upgrade.
  */
 export async function fetchPhoneIndex(
   client: DashboardSupabaseClient,
@@ -71,7 +72,9 @@ export function findDuplicateByPhone(
 function editToUpdate(edit: CustomerEdit): CustomerUpdate {
   return {
     name: edit.name,
-    phone: edit.phone,
+    // Bare digits on every write path (D1 §10.1) — the import path already did
+    // this; manual create/edit now matches. The UI display-formats on read.
+    phone: edit.phone === null ? null : normalizeCustomerPhone(edit.phone),
     email: edit.email,
     address: edit.address,
     city: edit.city,

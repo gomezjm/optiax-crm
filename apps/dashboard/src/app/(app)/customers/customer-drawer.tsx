@@ -15,7 +15,7 @@ import { z } from 'zod';
 import { CustomerCreateSchema, CustomerEditSchema, type CustomerEdit } from '@optiax/shared';
 import { t, type TranslationKey } from '@/i18n/index';
 import type { DashboardSupabaseClient } from '@/lib/supabase/types';
-import { formatDateTime, formatMoney, formatRelative } from '@/lib/format';
+import { formatDateTime, formatMoney, formatPhone, formatRelative } from '@/lib/format';
 import { convertAttributeValue } from '@/lib/customers/attribute-convert';
 import { fetchConversationId, fetchCustomerById } from '@/lib/customers/list';
 import {
@@ -100,7 +100,8 @@ function formFromItem(item: CustomerListItem, defs: AttributeDefRow[]): FormStat
   }
   return {
     name: item.customer.name ?? '',
-    phone: item.customer.phone ?? '',
+    // Display-formatted for editing; the write path normalizes back to digits.
+    phone: item.customer.phone ? formatPhone(item.customer.phone) : '',
     email: item.customer.email ?? '',
     address: item.customer.address ?? '',
     city: item.customer.city ?? '',

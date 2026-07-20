@@ -3,7 +3,7 @@
 /** Customers table (WS-D1 §2): sortable headers, selection, badge columns. */
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { t } from '@/i18n/index';
-import { formatMoney, formatRelative } from '@/lib/format';
+import { formatMoney, formatPhone, formatRelative } from '@/lib/format';
 import type { CustomerFilterModel, SortField } from '@/lib/customers/filter-model';
 import type { CustomerListItem } from '@/lib/customers/types';
 import { Badge } from '@/components/ui/badge';
@@ -105,7 +105,9 @@ export function CustomerTable({
               />
             </TableCell>
             <TableCell className="font-medium">{displayName(item)}</TableCell>
-            <TableCell className="text-muted-foreground">{item.customer.phone ?? '—'}</TableCell>
+            <TableCell className="text-muted-foreground">
+              {formatPhone(item.customer.phone)}
+            </TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
                 {item.tags.map((tag) => (
