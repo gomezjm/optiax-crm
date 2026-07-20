@@ -107,7 +107,7 @@ function createOrder(config: AgentConfig): ToolDeclaration {
   return {
     name: 'create_order',
     description:
-      'Register an order for this customer. Every line must reference a product_id you got from check_catalog — prices come from the catalog, not from you.' +
+      'Register an order for this customer. Every line must reference a product_id you got from check_catalog — prices come from the catalog, not from you. The product_id is a uuid; if you do not have one from a check_catalog result in THIS reply, call check_catalog first and use the ids it returns. Never write an id from memory or invent a name-like id.' +
       (confirm
         ? ' Before calling this, recap the items, quantities and total to the customer and get an explicit yes; then pass confirmed: true. Calling it without an explicit agreement is an error.'
         : '') +

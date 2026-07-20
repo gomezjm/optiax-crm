@@ -169,6 +169,32 @@ export interface RuntimeDb {
 
 const UNIQUE_VIOLATION = '23505';
 
+/**
+ * Split a catalog query into searchable tokens.
+ *
+ * Single characters are dropped ("talla M" would otherwise make every product
+ * containing an "m" a match), as are PostgREST's `or()` delimiters, so a query
+ * with a comma or parenthesis cannot restructure the filter expression.
+ */
+function searchTokens(query: string | undefined): string[] {
+  if (!query) return [];
+  return [
+    ...new Set(
+      query
+        .replace(/[,()\\]/g, ' ')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((token) => token.length > 1),
+    ),
+  ];
+}
+
+/** How many query tokens a product's name or description contains. */
+function tokenScore(name: string, description: string | null, tokens: string[]): number {
+  const haystack = `${name} ${description ?? ''}`.toLowerCase();
+  return tokens.reduce((score, token) => (haystack.includes(token) ? score + 1 : score), 0);
+}
+
 function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRepo {
   return {
     async getOrCreateConversation(waId, profileName) {
@@ -376,14 +402,19 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
         .eq('tenant_id', tenantId);
 
       if (search.onlyAvailable !== false) q = q.eq('available', true);
-      if (search.query) {
-        // Escape PostgREST's or() delimiters so a query like "a,b" or one with
-        // parens can't restructure the filter expression.
-        const term = search.query.replace(/[,()\\]/g, ' ').trim();
-        if (term) q = q.or(`name.ilike.%${term}%,description.ilike.%${term}%`);
+
+      // The model asks the way a customer talks — "blusa de lino Manuela oliva
+      // talla M" — so matching the whole phrase against one column finds
+      // nothing. Match on tokens instead and rank by how many hit, which keeps
+      // a descriptive query from silently returning an empty catalog.
+      const tokens = searchTokens(search.query);
+      if (tokens.length > 0) {
+        q = q.or(
+          tokens.flatMap((t) => [`name.ilike.%${t}%`, `description.ilike.%${t}%`]).join(','),
+        );
       }
 
-      const { data, error } = await q.order('name').limit(search.limit);
+      const { data, error } = await q.order('name');
       if (error) throw error;
 
       const rows = data.filter((row) => {
@@ -392,7 +423,16 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
         return name?.toLowerCase() === search.category.toLowerCase();
       });
 
-      return rows.map(({ product_categories, ...product }) => ({
+      const ranked =
+        tokens.length > 0
+          ? rows
+              .map((row) => ({ row, score: tokenScore(row.name, row.description, tokens) }))
+              // Stable within a score: `.order('name')` already sorted them.
+              .sort((a, b) => b.score - a.score)
+              .map(({ row }) => row)
+          : rows;
+
+      return ranked.slice(0, search.limit).map(({ product_categories, ...product }) => ({
         ...product,
         category_name: product_categories?.name ?? null,
       }));

@@ -352,14 +352,22 @@ export class FakeDb implements RuntimeDb {
       searchProducts(search: CatalogSearch) {
         let rows = db.products.filter((p) => p.tenant_id === tenantId);
         if (search.onlyAvailable !== false) rows = rows.filter((p) => p.available);
-        if (search.query) {
-          const term = search.query.toLowerCase();
-          rows = rows.filter(
-            (p) =>
-              p.name.toLowerCase().includes(term) ||
-              (p.description ?? '').toLowerCase().includes(term),
-          );
-        }
+        // Same token matching + ranking the real repo does, so unit tests
+        // reflect how search actually behaves against Postgres.
+        const tokens = [
+          ...new Set(
+            (search.query ?? '')
+              .replace(/[,()\\]/g, ' ')
+              .toLowerCase()
+              .split(/\s+/)
+              .filter((t) => t.length > 1),
+          ),
+        ];
+        const score = (p: ProductRow): number => {
+          const haystack = `${p.name} ${p.description ?? ''}`.toLowerCase();
+          return tokens.reduce((n, t) => (haystack.includes(t) ? n + 1 : n), 0);
+        };
+        if (tokens.length > 0) rows = rows.filter((p) => score(p) > 0);
         if (search.category) {
           const wanted = search.category.toLowerCase();
           rows = rows.filter((p) => {
@@ -367,7 +375,9 @@ export class FakeDb implements RuntimeDb {
             return category?.name.toLowerCase() === wanted;
           });
         }
-        const sorted = [...rows].sort((a, b) => a.name.localeCompare(b.name));
+        const sorted = [...rows].sort(
+          (a, b) => score(b) - score(a) || a.name.localeCompare(b.name),
+        );
         return Promise.resolve(
           sorted.slice(0, search.limit).map((product) => ({
             ...product,

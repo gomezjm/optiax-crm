@@ -173,7 +173,27 @@ export async function createOrder(args: Json, ctx: ToolContext): Promise<ToolOut
   }
 
   const parsed = CreateOrderArgsSchema.safeParse(args ?? {});
-  if (!parsed.success) return invalidArgs(parsed.error);
+  if (!parsed.success) {
+    // A product_id that isn't a uuid almost always means the model is working
+    // from memory of an earlier message rather than a check_catalog result in
+    // this one — tool results do not persist across inbound messages, so by
+    // the time the customer says "confirmo" the real ids are long gone and it
+    // invents a slug. A bare "Invalid uuid" leaves it guessing; naming the fix
+    // lets it recover inside the same tool loop.
+    const badId = parsed.error.issues.some(
+      (issue) => issue.path.join('.').includes('product_id') && /uuid/i.test(issue.message),
+    );
+    if (badId) {
+      return {
+        ok: false,
+        error: 'invalid_product_id',
+        details: {
+          note: 'product_id must be a uuid from a check_catalog result. Call check_catalog now, then call create_order again with the product_id values it returns.',
+        },
+      };
+    }
+    return invalidArgs(parsed.error);
+  }
   const { items, confirmed, ...logistics } = parsed.data;
 
   if (ctx.config.orders.confirmBeforeCreate && confirmed !== true) {

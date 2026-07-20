@@ -51,6 +51,44 @@ describe('check_catalog', () => {
     expect(result?.products[0]).toMatchObject({ name: 'Blusa blanca', price: 55000 });
   });
 
+  /**
+   * Regression, found in the live Gemini demo: the model asks the way a
+   * customer talks, so the query is a descriptive phrase rather than a
+   * keyword. Matching the whole phrase against one column found nothing and
+   * the agent told a real customer the product did not exist.
+   */
+  it('matches a conversational multi-word query, ranking the best hit first', async () => {
+    const { db, ctx } = setup();
+    db.addProduct({
+      tenant_id: TENANT,
+      name: 'Blusa de lino Manuela',
+      description: 'Blusa manga corta, tallas XS a XL. Colores: crudo, terracota, oliva.',
+      price: 89000,
+    });
+    db.addProduct({ tenant_id: TENANT, name: 'Jean mom fit Antonia', price: 129000 });
+
+    const outcome = await checkCatalog({ query: 'Blusa de Lino Manuela oliva talla M' }, ctx);
+
+    const result = outcome.ok ? (outcome.result as { products: { name: string }[] }) : null;
+    expect(result?.products[0]?.name).toBe('Blusa de lino Manuela');
+  });
+
+  it('drops single-character tokens rather than matching every product containing them', async () => {
+    const { db, ctx } = setup();
+    db.addProduct({ tenant_id: TENANT, name: 'Jean mom fit Antonia', price: 129000 });
+    db.addProduct({ tenant_id: TENANT, name: 'Vestido Catalina', price: 159000 });
+
+    // A query of nothing but noise leaves no tokens, which falls back to
+    // listing the catalog — the same thing check_catalog does with no query at
+    // all. Better a browsable list than a dead end the agent has to explain.
+    const outcome = await checkCatalog({ query: 'M' }, ctx);
+
+    const result = outcome.ok ? (outcome.result as { products: { name: string }[] }) : null;
+    expect(result?.products).toHaveLength(2);
+    // Ranking is inert with no tokens, so it stays alphabetical.
+    expect(result?.products.map((p) => p.name)).toEqual(['Jean mom fit Antonia', 'Vestido Catalina']);
+  });
+
   it('returns a structured no-results note instead of an empty silence', async () => {
     const { db, ctx } = setup();
     db.addProduct({ tenant_id: TENANT, name: 'Blusa blanca' });
@@ -295,6 +333,24 @@ describe('create_order', () => {
     const outcome = await createOrder({ items: [{ product_id: blusa.id, qty: 1 }] }, ctx);
 
     expect(outcome).toMatchObject({ ok: false, error: 'orders_not_configured' });
+  });
+
+  /**
+   * Regression from the live demo: several messages after check_catalog, the
+   * model no longer has the real uuids (tool results do not survive across
+   * inbound messages) and invents a slug. The error has to name the fix or it
+   * just apologizes to the customer.
+   */
+  it('tells the model how to recover from a non-uuid product_id', async () => {
+    const { ctx } = setup(ORDERS_ON);
+
+    const outcome = await createOrder(
+      { items: [{ product_id: 'blusa-lino-manuela', qty: 2 }] },
+      ctx,
+    );
+
+    expect(outcome).toMatchObject({ ok: false, error: 'invalid_product_id' });
+    expect(JSON.stringify(outcome)).toMatch(/call check_catalog/i);
   });
 
   it('rejects an empty item list', async () => {
