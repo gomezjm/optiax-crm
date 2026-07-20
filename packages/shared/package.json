@@ -4,15 +4,16 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "browser": {
-    "./dist/webhook-signature.js": false
-  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./webhook": {
+      "types": "./dist/webhook-signature.d.ts",
+      "default": "./dist/webhook-signature.js"
     }
   },
   "files": [

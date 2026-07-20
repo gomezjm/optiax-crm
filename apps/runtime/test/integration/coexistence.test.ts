@@ -18,11 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 import { createClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-  signWebhookPayload,
-  WEBHOOK_SIGNATURE_HEADER,
-  type Database,
-} from '@optiax/shared';
+import type { Database } from '@optiax/shared';
+import { signWebhookPayload, WEBHOOK_SIGNATURE_HEADER } from '@optiax/shared/webhook';
 import { createDb } from '../../src/db/index.js';
 import { createApp } from '../../src/app.js';
 import { drainQueueOnce } from '../../src/worker/worker.js';

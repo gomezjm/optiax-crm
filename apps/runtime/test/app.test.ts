@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { signWebhookPayload, WEBHOOK_SIGNATURE_HEADER } from '@optiax/shared';
+import { signWebhookPayload, WEBHOOK_SIGNATURE_HEADER } from '@optiax/shared/webhook';
 import { createApp, type AppDeps } from '../src/app.js';
 import { FakeDb } from './fakes.js';
 

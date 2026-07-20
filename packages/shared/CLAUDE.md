@@ -5,7 +5,11 @@ needs a type, it imports it from here — never redeclares it.
 
 ## Do
 
-- Export everything through `src/index.ts`.
+- Export everything through `src/index.ts`, with one exception: webhook signing
+  lives behind the `@optiax/shared/webhook` subpath (`src/webhook-signature.ts`)
+  because it imports `node:crypto` and the root barrel is bundled by the
+  dashboard (ws-d1 §10.2). Anything else Node-only belongs on its own subpath
+  too — never in the barrel.
 - Keep `AgentConfigSchema` strict (`.strict()`) with max lengths on all free text; it
   feeds the prompt compiler and the dashboard wizard (structured `path`+`message` errors).
 - Bump `COMPILER_VERSION` on ANY change to `src/compiler/` output (templates or logic).

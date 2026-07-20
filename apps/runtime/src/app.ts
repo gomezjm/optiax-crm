@@ -8,7 +8,8 @@
  */
 import { createRequire } from 'node:module';
 import { Hono } from 'hono';
-import { verifyWebhookSignature, WEBHOOK_SIGNATURE_HEADER, type Json } from '@optiax/shared';
+import type { Json } from '@optiax/shared';
+import { verifyWebhookSignature, WEBHOOK_SIGNATURE_HEADER } from '@optiax/shared/webhook';
 import type { RuntimeDb } from './db/index.js';
 import type { WebhookVerifyMode } from './env.js';
 import { parseEnvelope } from './wa/envelope.js';

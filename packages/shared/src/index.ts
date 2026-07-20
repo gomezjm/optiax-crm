@@ -91,10 +91,8 @@ export {
 export { compilePrompt, type CompileResult } from './compiler/compile-prompt.js';
 export { VERTICAL_TEMPLATES, resolveVertical } from './compiler/verticals.js';
 
-export {
-  signWebhookPayload,
-  verifyWebhookSignature,
-  WEBHOOK_SIGNATURE_HEADER,
-} from './webhook-signature.js';
+// Webhook signing is deliberately NOT re-exported here: it pulls in
+// `node:crypto`, and this barrel is bundled by the dashboard. It lives behind
+// the `@optiax/shared/webhook` subpath instead (ws-d1 §10.2).
 
 export type { Database, Json } from './db-types.js';
