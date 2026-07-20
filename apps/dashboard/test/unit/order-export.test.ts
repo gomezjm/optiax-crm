@@ -13,6 +13,7 @@ function line(overrides: Partial<OrderListItem['items'][number]>) {
     description: 'Almuerzo ejecutivo',
     qty: 2,
     unit_price: 18000,
+    sort_order: 0,
     ...overrides,
   };
 }
@@ -47,7 +48,10 @@ function orderItem(overrides: Partial<OrderListItem> = {}): OrderListItem {
       address: 'Cl 45 #13-40',
       city: 'Bogotá',
     },
-    items: [line({}), line({ id: 'item-2', description: 'Jugo natural', qty: 1, unit_price: 9000 })],
+    items: [
+      line({}),
+      line({ id: 'item-2', description: 'Jugo natural', qty: 1, unit_price: 9000, sort_order: 1 }),
+    ],
     ...overrides,
   };
 }
