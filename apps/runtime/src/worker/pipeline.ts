@@ -212,12 +212,13 @@ async function handleInboundMessage(
     return;
   }
 
-  // Missing/invalid published config is treated like "no active prompt
-  // version" (ws-r1 §1) — tenant-misconfig UX is out of scope.
+  // Missing/invalid published config skips the reply with its own reason —
+  // distinct from `no_active_prompt` so tenant-health UX can tell the two
+  // misconfigurations apart (ws-r1 §8.1, carried to ws-r2 §0.1).
   const config = await getConfig();
   if (!config) {
     log(`[worker] no valid published agent_config tenant=${tenant.id}`);
-    await recordSkip('no_active_prompt');
+    await recordSkip('no_published_config');
     return;
   }
 

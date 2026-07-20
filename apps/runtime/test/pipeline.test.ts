@@ -175,7 +175,7 @@ describe('processWebhookEvent', () => {
     expect(db.agentTurns[0]?.error).toMatchObject({ reason: 'agent_disabled' });
   });
 
-  it('missing published config: treated like no active prompt, skip turn recorded', async () => {
+  it('missing published config: skip turn recorded with no_published_config', async () => {
     const db = new FakeDb();
     db.addTenant({ tenant: TENANT, phoneNumberId: PHONE_NUMBER_ID, config: null });
     const model = new FakeModel();
@@ -187,7 +187,7 @@ describe('processWebhookEvent', () => {
     expect(db.messages).toHaveLength(1);
     expect(model.calls).toHaveLength(0);
     expect(db.agentTurns).toHaveLength(1);
-    expect(db.agentTurns[0]?.error).toMatchObject({ reason: 'no_active_prompt' });
+    expect(db.agentTurns[0]?.error).toMatchObject({ reason: 'no_published_config' });
   });
 
   it('operating hours: inactive schedule → persisted, no reply, skip turn recorded', async () => {
