@@ -100,8 +100,18 @@ describe('isAgentActive — the three operating modes', () => {
     expect(isAgentActive(agent, BOGOTA, new Date('2026-07-19T16:00:00Z'))).toBe(true);
   });
 
-  it("'outside_hours' with no schedule defined → always active", () => {
-    const { agent } = makeAgentConfig({ operatingMode: 'outside_hours' });
-    expect(isAgentActive(agent, BOGOTA, insideBusinessHours)).toBe(true);
-  });
+  // AgentConfigSchema rejects both schedule-relative modes without a schedule
+  // (ws-r1 §8.2), so these branches are unreachable for validated config —
+  // hence the hand-built agent here, which deliberately bypasses validation.
+  // They fail closed rather than letting an unvalidated config talk around the
+  // clock, which was the silent surprise §8.2 set out to remove.
+  it.each(['schedule', 'outside_hours'] as const)(
+    "'%s' with no schedule defined → inactive (defensive fallback)",
+    (operatingMode) => {
+      const { agent } = makeAgentConfig();
+      const unvalidated = { ...agent, operatingMode, schedule: undefined };
+      expect(isAgentActive(unvalidated, BOGOTA, insideBusinessHours)).toBe(false);
+      expect(isAgentActive(unvalidated, BOGOTA, outsideBusinessHours)).toBe(false);
+    },
+  );
 });

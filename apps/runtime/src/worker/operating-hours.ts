@@ -72,11 +72,14 @@ export function isInSchedule(schedule: Schedule, timeZone: string, now: Date): b
 /**
  * Whether the agent should reply right now under `operatingMode`:
  *  - 'always'        → active.
- *  - 'schedule'      → active only inside the schedule (no schedule — blocked
- *                      by AgentConfigSchema — degrades to inactive).
+ *  - 'schedule'      → active only inside the schedule.
  *  - 'outside_hours' → active only outside the schedule (owner covers business
- *                      hours). No schedule defined → nothing is "inside", so
- *                      the agent stays active around the clock.
+ *                      hours).
+ *
+ * AgentConfigSchema requires `schedule` for both schedule-relative modes
+ * (ws-r1 §8.2), so the missing-schedule branches are unreachable for validated
+ * config. They stay as defensive fallbacks and both fail closed (inactive)
+ * rather than letting an unvalidated config talk around the clock.
  */
 export function isAgentActive(agent: AgentBehavior, timeZone: string, now: Date = new Date()): boolean {
   switch (agent.operatingMode) {
@@ -85,6 +88,6 @@ export function isAgentActive(agent: AgentBehavior, timeZone: string, now: Date 
     case 'schedule':
       return agent.schedule ? isInSchedule(agent.schedule, timeZone, now) : false;
     case 'outside_hours':
-      return agent.schedule ? !isInSchedule(agent.schedule, timeZone, now) : true;
+      return agent.schedule ? !isInSchedule(agent.schedule, timeZone, now) : false;
   }
 }

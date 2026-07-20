@@ -29,13 +29,36 @@ describe('AgentConfigSchema', () => {
     expect(nested.success).toBe(false);
   });
 
-  it("requires schedule when operatingMode is 'schedule'", () => {
-    const result = AgentConfigSchema.safeParse({
-      ...minimalConfig,
-      agent: { ...minimalConfig.agent, operatingMode: 'schedule' },
-    });
-    expect(result.success).toBe(false);
-  });
+  // Both schedule-relative modes need one: "outside" of an undefined schedule
+  // is meaningless (ws-r1 §8.2).
+  it.each(['schedule', 'outside_hours'] as const)(
+    "requires schedule when operatingMode is '%s'",
+    (operatingMode) => {
+      const result = AgentConfigSchema.safeParse({
+        ...minimalConfig,
+        agent: { ...minimalConfig.agent, operatingMode },
+      });
+      expect(result.success).toBe(false);
+      expect(
+        result.success ? [] : result.error.issues.map((i) => i.path.join('.')),
+      ).toContain('agent.schedule');
+    },
+  );
+
+  it.each(['schedule', 'outside_hours'] as const)(
+    "accepts operatingMode '%s' when a schedule is present",
+    (operatingMode) => {
+      const result = AgentConfigSchema.safeParse({
+        ...minimalConfig,
+        agent: {
+          ...minimalConfig.agent,
+          operatingMode,
+          schedule: { days: [1, 2, 3, 4, 5], start: '09:00', end: '17:00' },
+        },
+      });
+      expect(result.success).toBe(true);
+    },
+  );
 
   it("requires keywords when an escalation trigger is 'keyword'", () => {
     const result = AgentConfigSchema.safeParse({

@@ -117,11 +117,15 @@ export const AgentConfigSchema = z
   })
   .strict()
   .superRefine((config, ctx) => {
-    if (config.agent.operatingMode === 'schedule' && !config.agent.schedule) {
+    // Both schedule-relative modes need a schedule: "outside" of an undefined
+    // schedule is meaningless, and silently degrading to always-active is a
+    // surprise the owner never asked for (ws-r1 §8.2).
+    const mode = config.agent.operatingMode;
+    if ((mode === 'schedule' || mode === 'outside_hours') && !config.agent.schedule) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['agent', 'schedule'],
-        message: "required when operatingMode is 'schedule'",
+        message: `required when operatingMode is '${mode}'`,
       });
     }
     for (const [i, rule] of config.escalation.rules.entries()) {
