@@ -19,6 +19,7 @@ import { toModelHistory } from '../model/history.js';
 import type { WaSender } from '../wa/sender.js';
 import { parseEnvelope, type EchoWaMessage, type InboundWaMessage } from '../wa/envelope.js';
 import { assertWithinWindow, OutsideWindowError } from '../wa/window.js';
+import { buildToolDeclarations, runToolLoop } from '../tools/index.js';
 import { isAgentActive } from './operating-hours.js';
 
 export const HISTORY_LIMIT = 20;
@@ -241,14 +242,11 @@ async function handleInboundMessage(
     return;
   }
 
-  const history = toModelHistory(await repo.listRecentMessages(conversation.id, HISTORY_LIMIT));
-  const reply = await model.generateReply({
-    systemPrompt: promptVersion.compiled_prompt,
-    history,
-  });
-
-  // Central 24h-window guard (ws-r1 §3). Inbound-triggered replies trivially
-  // pass — the guard exists so every future send path inherits enforcement.
+  // Window guard, checked BEFORE the model runs (ws-r2). R1 checked it only
+  // right before the send, which was fine when a turn was pure. Now a turn can
+  // create orders and write customer data, and doing that for a message we are
+  // forbidden to answer would leave the customer with an order they were never
+  // told about. Fail before any side effect.
   try {
     assertWithinWindow(conversation);
   } catch (err) {
@@ -260,7 +258,59 @@ async function handleInboundMessage(
     throw err;
   }
 
-  const sent = await sender.sendText(conversation.wa_id, reply.text);
+  const history = toModelHistory(await repo.listRecentMessages(conversation.id, HISTORY_LIMIT));
+  const tools = buildToolDeclarations(config, { hasProducts: await repo.hasAnyProduct() });
+
+  const loop = await runToolLoop({
+    model,
+    systemPrompt: promptVersion.compiled_prompt,
+    history,
+    tools,
+    ctx: {
+      repo,
+      config,
+      // Bound from the conversation we resolved, never from model arguments.
+      conversationId: conversation.id,
+      currency: tenant.currency,
+      log,
+    },
+  });
+
+  // Every model round is its own agent_turn, so token/latency accounting stays
+  // cumulative and R3 can assert on the whole trace. Rounds that only called
+  // tools have no outbound message to attach to — message_id is null there.
+  const recordRounds = async (outboundMessageId: string | null): Promise<void> => {
+    for (const [index, round] of loop.rounds.entries()) {
+      const isLast = index === loop.rounds.length - 1;
+      await repo.insertAgentTurn({
+        conversation_id: conversation.id,
+        message_id: isLast ? outboundMessageId : null,
+        prompt_version_id: promptVersion.id,
+        model: round.usage.model,
+        latency_ms: round.usage.latencyMs,
+        input_tokens: round.usage.inputTokens,
+        output_tokens: round.usage.outputTokens,
+        tool_calls: round.toolCalls,
+      });
+    }
+  };
+
+  const text = loop.text ?? (loop.hitRoundLimit ? config.escalation.handoffMessage : null);
+  if (!text) {
+    // No prose and no fallback worth sending (a handoff with no configured
+    // message). The rounds still get recorded — the work happened.
+    await recordRounds(null);
+    return;
+  }
+  if (loop.hitRoundLimit) {
+    log(`[worker] round ceiling hit conv=${conversation.id} — sending fallback`);
+  }
+
+  // The invariant the runtime CLAUDE.md asks for: re-assert immediately before
+  // the sender, so this send path can never drift out from under the guard.
+  assertWithinWindow(conversation);
+
+  const sent = await sender.sendText(conversation.wa_id, text);
 
   const { message: outbound } = await repo.insertMessage({
     conversation_id: conversation.id,
@@ -268,20 +318,11 @@ async function handleInboundMessage(
     direction: 'outbound',
     source: 'bot',
     type: 'text',
-    body: reply.text,
+    body: text,
     wa_status: 'accepted',
   });
 
-  await repo.insertAgentTurn({
-    conversation_id: conversation.id,
-    message_id: outbound.id,
-    prompt_version_id: promptVersion.id,
-    model: reply.model,
-    latency_ms: reply.latencyMs,
-    input_tokens: reply.inputTokens,
-    output_tokens: reply.outputTokens,
-    tool_calls: [],
-  });
+  await recordRounds(outbound.id);
 
   await repo.updateConversationTimestamps(conversation.id, {
     lastMessageAt: outbound.created_at,

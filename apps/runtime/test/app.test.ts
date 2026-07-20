@@ -23,6 +23,7 @@ function setup(overrides: Partial<AppDeps> = {}) {
       agentEnabled: true,
       activePromptVersionId: 'pv-1',
       timezone: 'America/Bogota',
+      currency: 'COP',
     },
     phoneNumberId: '111000111000111',
   });

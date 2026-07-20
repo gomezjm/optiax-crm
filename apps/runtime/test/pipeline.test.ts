@@ -23,6 +23,7 @@ const TENANT = {
   agentEnabled: true,
   activePromptVersionId: 'pv-1',
   timezone: 'America/Bogota',
+  currency: 'COP',
 };
 const PHONE_NUMBER_ID = '111000111000111';
 
@@ -238,8 +239,12 @@ describe('processWebhookEvent', () => {
 
     await processWebhookEvent(deps, eventId);
 
-    expect(model.calls).toHaveLength(1); // reply was generated…
-    expect(sender.sent).toHaveLength(0); // …but the send was blocked
+    // ws-r2 moved the window guard ahead of the model call: a turn can now
+    // create orders and write customer data, and doing that for a message we
+    // are forbidden to answer would leave the customer with an order nobody
+    // told them about. So the model is never reached, not merely un-sent.
+    expect(model.calls).toHaveLength(0);
+    expect(sender.sent).toHaveLength(0);
     expect(db.messages.filter((m) => m.direction === 'outbound')).toHaveLength(0);
     expect(db.agentTurns).toHaveLength(1);
     expect(db.agentTurns[0]?.error).toMatchObject({ reason: 'outside_24h_window' });

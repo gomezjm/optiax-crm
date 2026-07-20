@@ -20,7 +20,43 @@ export type MessageRow = Tables['messages']['Row'];
 export type ConversationRow = Tables['conversations']['Row'];
 export type PromptVersionRow = Tables['prompt_versions']['Row'];
 export type WebhookEventRow = Tables['webhook_events']['Row'];
+export type CustomerRow = Tables['customers']['Row'];
+export type ProductRow = Tables['products']['Row'];
+export type OrderRow = Tables['orders']['Row'];
+export type OrderItemRow = Tables['order_items']['Row'];
 export type WaStatus = Database['public']['Enums']['e_wa_status'];
+
+/** A catalog row joined to its category name — the agent never sees ids it can't use. */
+export interface CatalogProduct extends ProductRow {
+  category_name: string | null;
+}
+
+/** Search filter for the `check_catalog` tool (ws-r2 §3). */
+export interface CatalogSearch {
+  query?: string | undefined;
+  category?: string | undefined;
+  onlyAvailable?: boolean | undefined;
+  limit: number;
+}
+
+/** The write half of `create_order`, composed by the executor from validated args. */
+export interface NewOrder {
+  customerId: string;
+  conversationId: string;
+  statusId: string;
+  total: number;
+  currency: string;
+  deliveryAddress: string | null;
+  deliveryDate: string | null;
+  driverNotes: string | null;
+  /** Ordered as the customer asked for them; index becomes `sort_order`. */
+  items: {
+    product_id: string | null;
+    description: string;
+    qty: number;
+    unit_price: number;
+  }[];
+}
 
 /** Insert payloads with tenant_id (and generated columns) stripped — the repo owns tenant scoping. */
 export type NewMessage = Omit<Tables['messages']['Insert'], 'tenant_id' | 'id' | 'created_at'>;
@@ -33,6 +69,8 @@ export interface TenantContext {
   activePromptVersionId: string | null;
   /** IANA timezone name (`tenants.timezone`) — operating-hours evaluation. */
   timezone: string;
+  /** ISO currency code (`tenants.currency`) — stamped on agent-created orders. */
+  currency: string;
 }
 
 export interface InsertMessageResult {
@@ -69,6 +107,38 @@ export interface TenantRepo {
    * status outranks the stored one (monotonic guard, ws-r1 spec §5), else no-op.
    */
   updateMessageWaStatus(waMessageId: string, status: WaStatus): Promise<void>;
+
+  // ── Agent tools (ws-r2 §3) ────────────────────────────────────────────────
+  // Every one of these is reachable from a model-driven tool call, so every
+  // one hard-scopes tenant_id here rather than trusting its caller.
+
+  /** True when the tenant has at least one product — gates catalog tools. */
+  hasAnyProduct(): Promise<boolean>;
+  /** Catalog search backing `check_catalog`. */
+  searchProducts(search: CatalogSearch): Promise<CatalogProduct[]>;
+  /**
+   * Catalog rows for the ids an order references, so the executor can price
+   * lines from the catalog instead of from model-supplied numbers. Ids that do
+   * not belong to this tenant simply do not come back.
+   */
+  getProductsByIds(ids: string[]): Promise<ProductRow[]>;
+  /** The customer this conversation belongs to, if it has one. */
+  getConversationCustomer(conversationId: string): Promise<CustomerRow | null>;
+  /**
+   * Apply a capture patch to an existing customer. Merges `attributes` rather
+   * than replacing them, and never touches `source` — an imported customer
+   * stays imported (ws-r2 §3).
+   */
+  updateCustomerCapture(
+    customerId: string,
+    patch: Omit<Tables['customers']['Update'], 'tenant_id' | 'id' | 'source' | 'wa_id'>,
+  ): Promise<CustomerRow>;
+  /** The tenant's initial order status (`kind = 'new'`), or null if unconfigured. */
+  getInitialOrderStatus(): Promise<Tables['order_statuses']['Row'] | null>;
+  /** Insert an order and its items in insertion order; items get sort_order 0..n-1. */
+  createOrder(input: NewOrder): Promise<{ order: OrderRow; items: OrderItemRow[] }>;
+  /** Flag a conversation for the human team (`handoff_to_human`). */
+  setConversationNeedsAttention(conversationId: string, needsAttention: boolean): Promise<void>;
 }
 
 export interface WebhookEventsStore {
@@ -287,6 +357,153 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
         .eq('id', existing.id);
       if (error) throw error;
     },
+
+    // ── Agent tools (ws-r2 §3) ──────────────────────────────────────────────
+
+    async hasAnyProduct() {
+      const { count, error } = await client
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId);
+      if (error) throw error;
+      return (count ?? 0) > 0;
+    },
+
+    async searchProducts(search) {
+      let q = client
+        .from('products')
+        .select('*, product_categories(name)')
+        .eq('tenant_id', tenantId);
+
+      if (search.onlyAvailable !== false) q = q.eq('available', true);
+      if (search.query) {
+        // Escape PostgREST's or() delimiters so a query like "a,b" or one with
+        // parens can't restructure the filter expression.
+        const term = search.query.replace(/[,()\\]/g, ' ').trim();
+        if (term) q = q.or(`name.ilike.%${term}%,description.ilike.%${term}%`);
+      }
+
+      const { data, error } = await q.order('name').limit(search.limit);
+      if (error) throw error;
+
+      const rows = data.filter((row) => {
+        if (!search.category) return true;
+        const name = row.product_categories?.name;
+        return name?.toLowerCase() === search.category.toLowerCase();
+      });
+
+      return rows.map(({ product_categories, ...product }) => ({
+        ...product,
+        category_name: product_categories?.name ?? null,
+      }));
+    },
+
+    async getProductsByIds(ids) {
+      if (ids.length === 0) return [];
+      const { data, error } = await client
+        .from('products')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .in('id', ids);
+      if (error) throw error;
+      return data;
+    },
+
+    async getConversationCustomer(conversationId) {
+      const { data: conversation, error: conversationError } = await client
+        .from('conversations')
+        .select('customer_id')
+        .eq('tenant_id', tenantId)
+        .eq('id', conversationId)
+        .maybeSingle();
+      if (conversationError) throw conversationError;
+      if (!conversation?.customer_id) return null;
+
+      const { data, error } = await client
+        .from('customers')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('id', conversation.customer_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async updateCustomerCapture(customerId, patch) {
+      const { data, error } = await client
+        .from('customers')
+        .update(patch)
+        .eq('tenant_id', tenantId)
+        .eq('id', customerId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async getInitialOrderStatus() {
+      const { data, error } = await client
+        .from('order_statuses')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('kind', 'new')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+
+    async createOrder(input) {
+      const { data: order, error: orderError } = await client
+        .from('orders')
+        .insert({
+          tenant_id: tenantId,
+          customer_id: input.customerId,
+          conversation_id: input.conversationId,
+          status_id: input.statusId,
+          total: input.total,
+          currency: input.currency,
+          delivery_address: input.deliveryAddress,
+          delivery_date: input.deliveryDate,
+          driver_notes: input.driverNotes,
+          source: 'agent',
+        })
+        .select('*')
+        .single();
+      if (orderError) throw orderError;
+
+      const { data: items, error: itemsError } = await client
+        .from('order_items')
+        .insert(
+          input.items.map((item, index) => ({
+            tenant_id: tenantId,
+            order_id: order.id,
+            product_id: item.product_id,
+            description: item.description,
+            qty: item.qty,
+            unit_price: item.unit_price,
+            sort_order: index,
+          })),
+        )
+        .select('*');
+      if (itemsError) {
+        // An order with no lines is worse than no order: it shows up in /orders
+        // with a total nobody can explain. Same compensating delete the
+        // dashboard composer does.
+        await client.from('orders').delete().eq('tenant_id', tenantId).eq('id', order.id);
+        throw itemsError;
+      }
+
+      return { order, items };
+    },
+
+    async setConversationNeedsAttention(conversationId, needsAttention) {
+      const { error } = await client
+        .from('conversations')
+        .update({ needs_attention: needsAttention })
+        .eq('tenant_id', tenantId)
+        .eq('id', conversationId);
+      if (error) throw error;
+    },
   };
 }
 
@@ -297,7 +514,7 @@ export function createDb(opts: { url: string; serviceRoleKey: string }): Runtime
     async resolveTenantByPhoneNumberId(phoneNumberId) {
       const { data, error } = await client
         .from('tenants')
-        .select('id, name, agent_enabled, active_prompt_version_id, timezone')
+        .select('id, name, agent_enabled, active_prompt_version_id, timezone, currency')
         .eq('wa_phone_number_id', phoneNumberId)
         .maybeSingle();
       if (error) throw error;
@@ -308,6 +525,7 @@ export function createDb(opts: { url: string; serviceRoleKey: string }): Runtime
         agentEnabled: data.agent_enabled,
         activePromptVersionId: data.active_prompt_version_id,
         timezone: data.timezone,
+        currency: data.currency,
       };
     },
 

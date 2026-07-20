@@ -5,10 +5,16 @@
 import { randomUUID } from 'node:crypto';
 import { validateAgentConfig, type AgentConfig, type Json } from '@optiax/shared';
 import type {
+  CatalogSearch,
   ConversationRow,
+  CustomerRow,
   MessageRow,
   NewAgentTurn,
   NewMessage,
+  NewOrder,
+  OrderItemRow,
+  OrderRow,
+  ProductRow,
   PromptVersionRow,
   QueueMessage,
   RuntimeDb,
@@ -25,9 +31,19 @@ export interface FakeTenantSeed {
   config?: AgentConfig | null;
 }
 
+/** Everything outside `agent` a tool test may need to vary (ws-r2). */
+export interface AgentConfigOverrides {
+  catalog?: Partial<AgentConfig['catalog']>;
+  orders?: Partial<AgentConfig['orders']>;
+  capture?: AgentConfig['capture'];
+  escalation?: Partial<AgentConfig['escalation']>;
+  guardrails?: AgentConfig['guardrails'];
+}
+
 /** Minimal valid AgentConfig for unit tests; override per-test as needed. */
 export function makeAgentConfig(
   agent: Partial<AgentConfig['agent']> = {},
+  rest: AgentConfigOverrides = {},
 ): AgentConfig {
   const result = validateAgentConfig({
     version: 1,
@@ -42,14 +58,22 @@ export function makeAgentConfig(
       pauseHoursOnOwnerReply: 24,
       ...agent,
     },
-    catalog: { canQuotePrices: true, offerPromos: false, outOfStock: 'say_unavailable' },
+    catalog: {
+      canQuotePrices: true,
+      offerPromos: false,
+      outOfStock: 'say_unavailable',
+      ...rest.catalog,
+    },
     orders: {
       enabled: false,
       confirmBeforeCreate: true,
       collectDelivery: false,
       sharePaymentMethods: false,
+      ...rest.orders,
     },
-    escalation: { rules: [], handoffMessage: 'Te paso con el equipo.' },
+    ...(rest.capture ? { capture: rest.capture } : {}),
+    ...(rest.guardrails ? { guardrails: rest.guardrails } : {}),
+    escalation: { rules: [], handoffMessage: 'Te paso con el equipo.', ...rest.escalation },
   });
   if (!result.ok) {
     throw new Error(`makeAgentConfig produced an invalid config: ${JSON.stringify(result.errors)}`);
@@ -69,6 +93,13 @@ export class FakeDb implements RuntimeDb {
   conversations: ConversationRow[] = [];
   messages: MessageRow[] = [];
   agentTurns: StoredAgentTurn[] = [];
+  // ws-r2 tool-backing tables.
+  customers: CustomerRow[] = [];
+  products: ProductRow[] = [];
+  categories: { id: string; tenant_id: string; name: string }[] = [];
+  orderStatuses: { id: string; tenant_id: string; name: string; kind: string }[] = [];
+  orders: OrderRow[] = [];
+  orderItems: OrderItemRow[] = [];
   events = new Map<string, WebhookEventRow>();
   queueMessages: QueueMessage[] = [];
   archived: number[] = [];
@@ -114,6 +145,60 @@ export class FakeDb implements RuntimeDb {
     };
     this.conversations.push(conversation);
     return conversation;
+  }
+
+  addCustomer(partial: Partial<CustomerRow> & { tenant_id: string }): CustomerRow {
+    const customer = {
+      id: randomUUID(),
+      created_at: this.now(),
+      updated_at: this.now(),
+      wa_id: null,
+      phone: null,
+      name: null,
+      email: null,
+      address: null,
+      city: null,
+      gender: null,
+      age_group: null,
+      attributes: {},
+      consent_status: 'unknown',
+      source: 'agent',
+      total_spent: 0,
+      last_order_at: null,
+      last_message_at: null,
+      ...partial,
+    } as CustomerRow;
+    this.customers.push(customer);
+    return customer;
+  }
+
+  addProduct(partial: Partial<ProductRow> & { tenant_id: string; name: string }): ProductRow {
+    const product = {
+      id: randomUUID(),
+      created_at: this.now(),
+      updated_at: this.now(),
+      category_id: null,
+      description: null,
+      price: 10000,
+      promo_price: null,
+      available: true,
+      image_paths: [],
+      ...partial,
+    } as ProductRow;
+    this.products.push(product);
+    return product;
+  }
+
+  addCategory(tenantId: string, name: string): { id: string; tenant_id: string; name: string } {
+    const category = { id: randomUUID(), tenant_id: tenantId, name };
+    this.categories.push(category);
+    return category;
+  }
+
+  addOrderStatus(tenantId: string, name: string, kind: string) {
+    const status = { id: randomUUID(), tenant_id: tenantId, name, kind };
+    this.orderStatuses.push(status);
+    return status;
   }
 
   addEvent(payload: Json, tenantId: string | null = null): string {
@@ -254,6 +339,130 @@ export class FakeDb implements RuntimeDb {
         if (message && shouldRecordStatus(message.wa_status, status)) {
           message.wa_status = status;
         }
+        return Promise.resolve();
+      },
+
+      // ── ws-r2 agent tools ─────────────────────────────────────────────────
+      // Each filters on tenantId exactly as the real repo does, so a test that
+      // forges a foreign id gets the same empty result the database would give.
+
+      hasAnyProduct() {
+        return Promise.resolve(db.products.some((p) => p.tenant_id === tenantId));
+      },
+      searchProducts(search: CatalogSearch) {
+        let rows = db.products.filter((p) => p.tenant_id === tenantId);
+        if (search.onlyAvailable !== false) rows = rows.filter((p) => p.available);
+        if (search.query) {
+          const term = search.query.toLowerCase();
+          rows = rows.filter(
+            (p) =>
+              p.name.toLowerCase().includes(term) ||
+              (p.description ?? '').toLowerCase().includes(term),
+          );
+        }
+        if (search.category) {
+          const wanted = search.category.toLowerCase();
+          rows = rows.filter((p) => {
+            const category = db.categories.find((c) => c.id === p.category_id);
+            return category?.name.toLowerCase() === wanted;
+          });
+        }
+        const sorted = [...rows].sort((a, b) => a.name.localeCompare(b.name));
+        return Promise.resolve(
+          sorted.slice(0, search.limit).map((product) => ({
+            ...product,
+            category_name: db.categories.find((c) => c.id === product.category_id)?.name ?? null,
+          })),
+        );
+      },
+      getProductsByIds(ids: string[]) {
+        return Promise.resolve(
+          db.products.filter((p) => p.tenant_id === tenantId && ids.includes(p.id)),
+        );
+      },
+      getConversationCustomer(conversationId: string) {
+        const conversation = db.conversations.find(
+          (c) => c.tenant_id === tenantId && c.id === conversationId,
+        );
+        if (!conversation?.customer_id) return Promise.resolve(null);
+        return Promise.resolve(
+          db.customers.find((c) => c.tenant_id === tenantId && c.id === conversation.customer_id) ??
+            null,
+        );
+      },
+      updateCustomerCapture(customerId: string, patch: Record<string, unknown>) {
+        const customer = db.customers.find(
+          (c) => c.tenant_id === tenantId && c.id === customerId,
+        );
+        if (!customer) throw new Error(`fake: no customer ${customerId} for tenant ${tenantId}`);
+        Object.assign(customer, patch);
+        return Promise.resolve(customer);
+      },
+      getInitialOrderStatus() {
+        const status = db.orderStatuses.find(
+          (s) => s.tenant_id === tenantId && s.kind === 'new',
+        );
+        return Promise.resolve(
+          status
+            ? ({ ...status, created_at: db.now(), sort_order: 0 } as unknown as never)
+            : null,
+        );
+      },
+      createOrder(input: NewOrder) {
+        const order = {
+          id: randomUUID(),
+          created_at: db.now(),
+          updated_at: db.now(),
+          tenant_id: tenantId,
+          customer_id: input.customerId,
+          conversation_id: input.conversationId,
+          status_id: input.statusId,
+          total: input.total,
+          currency: input.currency,
+          payment_method_id: null,
+          payment_reference: null,
+          payment_proof_media_path: null,
+          payment_verified_at: null,
+          delivery_address: input.deliveryAddress,
+          delivery_date: input.deliveryDate,
+          driver_notes: input.driverNotes,
+          source: 'agent',
+          campaign_id: null,
+        } as OrderRow;
+        db.orders.push(order);
+
+        const items = input.items.map(
+          (item, index) =>
+            ({
+              id: randomUUID(),
+              created_at: db.now(),
+              tenant_id: tenantId,
+              order_id: order.id,
+              product_id: item.product_id,
+              description: item.description,
+              qty: item.qty,
+              unit_price: item.unit_price,
+              sort_order: index,
+            }) as OrderItemRow,
+        );
+        db.orderItems.push(...items);
+
+        // Mirror the D2 trigger so unit tests see the same rollup the DB keeps.
+        const customer = db.customers.find((c) => c.id === input.customerId);
+        if (customer) {
+          customer.total_spent = db.orders
+            .filter((o) => o.customer_id === customer.id)
+            .reduce((sum, o) => sum + Number(o.total), 0);
+          customer.last_order_at = order.created_at;
+        }
+
+        return Promise.resolve({ order, items });
+      },
+      setConversationNeedsAttention(conversationId: string, needsAttention: boolean) {
+        const conversation = db.conversations.find(
+          (c) => c.tenant_id === tenantId && c.id === conversationId,
+        );
+        if (conversation) conversation.needs_attention = needsAttention;
         return Promise.resolve();
       },
     };

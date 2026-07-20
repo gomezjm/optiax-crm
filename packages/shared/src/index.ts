@@ -88,6 +88,29 @@ export {
   type AgentSkipReason,
 } from './schemas/agent-skip-reason.js';
 
+export {
+  AGENT_TOOL_NAMES,
+  AgentToolNameSchema,
+  CATALOG_RESULT_LIMIT,
+  CheckCatalogArgsSchema,
+  CaptureCustomerSchema,
+  HANDOFF_REASONS,
+  HandoffReasonSchema,
+  HandoffToHumanArgsSchema,
+  type AgentToolName,
+  type CheckCatalogArgs,
+  type CaptureCustomer,
+  type HandoffReason,
+  type HandoffToHumanArgs,
+} from './schemas/agent-tools.js';
+
+export {
+  CreateOrderArgsSchema,
+  CreateOrderItemArgsSchema,
+  type CreateOrderArgs,
+  type CreateOrderItemArgs,
+} from './schemas/agent-tool-args.js';
+
 export { compilePrompt, type CompileResult } from './compiler/compile-prompt.js';
 export { VERTICAL_TEMPLATES, resolveVertical } from './compiler/verticals.js';
 
