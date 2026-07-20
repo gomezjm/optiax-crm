@@ -114,7 +114,7 @@ describe('pipeline with tools', () => {
     expect(s.db.agentTurns).toHaveLength(1);
   });
 
-  it('round ceiling: falls back to the handoff message rather than going silent', async () => {
+  it('round ceiling: real handoff — flags + pauses, sends message, marks the turn (ws-r3 §0)', async () => {
     const s = setup([], { escalation: { handoffMessage: 'Te paso con el equipo.' } });
     const model = new FakeModel(
       'fallback',
@@ -131,6 +131,12 @@ describe('pipeline with tools', () => {
     // The customer is never left with silence.
     expect(s.sender.sent).toHaveLength(1);
     expect(s.sender.sent[0]?.body).toBe('Te paso con el equipo.');
+    // ws-r3 §0: the ceiling now performs a real handoff (R2 Q-E defect).
+    expect(s.conversation.needs_attention).toBe(true);
+    expect(s.conversation.bot_paused).toBe(true);
+    expect(s.conversation.paused_until).toBeNull();
+    // The last turn carries the distinct ceiling-handoff marker.
+    expect(s.db.agentTurns.at(-1)?.error).toEqual({ reason: 'round_limit_handoff' });
   });
 
   it('a paused conversation never runs tools', async () => {

@@ -24,6 +24,7 @@ import { createApp } from '../../src/app.js';
 import { drainQueueOnce } from '../../src/worker/worker.js';
 import { FakeModel, textTurn, toolCallTurn, type ScriptedTurn } from '../../src/model/fake.js';
 import { MockWaSender } from '../../src/wa/sender.js';
+import { MAX_MODEL_ROUNDS } from '../../src/tools/index.js';
 
 globalThis.WebSocket ??= WebSocket as unknown as typeof globalThis.WebSocket;
 
@@ -301,5 +302,36 @@ describe('agent tools against real Postgres', () => {
       .eq('tenant_id', TENANT_A)
       .eq('customer_id', existing!.id);
     expect(ordersAfter).toBe(ordersBefore);
+  });
+
+  it('round ceiling performs a real handoff — needs_attention + pause persist, turn marked (ws-r3 §0)', async () => {
+    // The previous test lifted the pause; keep it clear so the loop runs.
+    const conv = await testConversation();
+    await admin
+      .from('conversations')
+      .update({ bot_paused: false, paused_until: null, needs_attention: false })
+      .eq('id', conv!.id);
+
+    // A model that never stops calling tools drives the loop to the ceiling.
+    const model = await runWithScript(
+      Array.from({ length: MAX_MODEL_ROUNDS + 2 }, () =>
+        toolCallTurn({ name: 'check_catalog', args: { query: 'blusa' } }),
+      ),
+      'ceiling.1',
+    );
+    expect(model.roundsRun).toBe(MAX_MODEL_ROUNDS);
+
+    const conversation = await testConversation();
+    expect(conversation?.needs_attention).toBe(true);
+    expect(conversation?.bot_paused).toBe(true);
+    expect(conversation?.paused_until).toBeNull();
+
+    // The last agent_turn carries the distinct ceiling-handoff marker.
+    const { data: turns } = await admin
+      .from('agent_turns')
+      .select('*')
+      .eq('conversation_id', conversation!.id)
+      .order('created_at');
+    expect(turns!.at(-1)?.error).toEqual({ reason: 'round_limit_handoff' });
   });
 });

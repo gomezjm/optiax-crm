@@ -25,6 +25,12 @@ import { isAgentActive } from './operating-hours.js';
 export const HISTORY_LIMIT = 20;
 /** Fallback when the published config is missing/invalid (schema default). */
 export const DEFAULT_PAUSE_HOURS = 24;
+/**
+ * `agent_turns.error.reason` marker for a conversation handed off because the
+ * tool loop hit the round ceiling (ws-r3 §0). Distinct from an AgentSkipReason:
+ * tools ran, so this is not a skip — it records why the bot stopped and paused.
+ */
+export const ROUND_LIMIT_HANDOFF = 'round_limit_handoff';
 
 export interface PipelineDeps {
   db: RuntimeDb;
@@ -291,19 +297,33 @@ async function handleInboundMessage(
         input_tokens: round.usage.inputTokens,
         output_tokens: round.usage.outputTokens,
         tool_calls: round.toolCalls,
+        // The distinct marker for a ceiling-driven handoff (ws-r3 §0): tools ran,
+        // so this is not a skip, but the trace must show why the bot stopped.
+        ...(isLast && loop.hitRoundLimit ? { error: { reason: ROUND_LIMIT_HANDOFF } } : {}),
       });
     }
   };
 
+  // ws-r3 §0 (ratified R2 Q-E): the 4-round ceiling is a REAL handoff, not just
+  // a fallback message. R2 sent `escalation.handoffMessage` here but never
+  // flagged the conversation or paused the bot — it promised a human and
+  // summoned none. Perform the same handoff `handoff_to_human` does: flag for
+  // the team and pause indefinitely, so a human owns the conversation and the
+  // bot does not silently resume mid-problem. Done before the send/marker logic
+  // so it happens even when no handoff message is configured to send.
+  if (loop.hitRoundLimit) {
+    await repo.setConversationNeedsAttention(conversation.id, true);
+    await repo.setConversationPause(conversation.id, null);
+    log(`[worker] round ceiling hit conv=${conversation.id} — handed off to human`);
+  }
+
   const text = loop.text ?? (loop.hitRoundLimit ? config.escalation.handoffMessage : null);
   if (!text) {
     // No prose and no fallback worth sending (a handoff with no configured
-    // message). The rounds still get recorded — the work happened.
+    // message). The rounds still get recorded — the work happened, and the
+    // handoff above already flagged + paused the conversation.
     await recordRounds(null);
     return;
-  }
-  if (loop.hitRoundLimit) {
-    log(`[worker] round ceiling hit conv=${conversation.id} — sending fallback`);
   }
 
   // The invariant the runtime CLAUDE.md asks for: re-assert immediately before
