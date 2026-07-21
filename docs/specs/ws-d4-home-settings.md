@@ -55,3 +55,28 @@ D2-D flagged `America/Bogota` hardcoded in dashboard date helpers. Home's "today
 - [ ] Every UI string in `es.json`; no service key; admin-only gating verified; masters respect phase-0 role matrix
 - [ ] Only §0/§3 migrations touch the DB; isolation + meta + eval suites green
 - [ ] `SESSION_NOTES.md`: numbered assumptions, demo script, questions — **plus a short "Phase 2 complete" note**: what of the 8 PRD screens is now live and what's deferred to Phases 3–5
+
+## 6. Addendum — ratified decisions + coordinator answers (2026-07-21)
+
+Phase 2 **complete**. All D4 assumptions ratified, including the sensible small extensions (the `statusIds` multi-status orders filter for Home's deep-link; reps may verify payments since orders are operational; head-only counts for KPIs). Answers to the four questions:
+
+1. **Residual fixed `-05:00` in `query-translation.ts`: accepted for now.** It's Colombian-correct and is the last unthreaded spot of the D2-D timezone item. **Folded into the Phase 4 onboarding-prep tz pass** (thread a real tz through it / compute bounds upstream like Home does) — before the first non-UTC-5 tenant, not now.
+2. **`attribute_defs.type` immutable: confirmed.** Stored `customers.attributes` values are typed against it; delete+recreate is the safe path. A guarded "retype + migrate values" flow is **backlogged**, not built.
+3. **Self-service `display_name` defers to Phase 4.** D4's Team tab manages roles only (its scope). Reps editing their own display name lands with the Phase 4 team/onboarding work — closes phase-0 provisional (b).
+4. **Naive `Ventas de hoy` sum is correct** under the invariant *one currency per tenant* (`tenants.currency`, and `orders.currency` is set from it at creation). If a tenant ever needs multi-currency, that's a schema/UX change well beyond MVP — not now.
+
+### PRD screen-status map (corrected — authoritative)
+The session note said "screens 0–5 and 7 live, Screen 6 (Campaigns) deferred." That mis-numbered the PRD. Correct mapping:
+
+| Screen | Name | Status |
+|---|---|---|
+| 0 | Dashboard / Home | ✅ live (D4) |
+| 1 | Customers | ✅ live (D1) |
+| 2 | Customer **Segments** | ⛔ deferred → Phase 3 (C1) |
+| 3 | **Campaigns** | ⛔ deferred → Phase 3 (C2) |
+| 4 | Orders | ✅ live (D2) |
+| 5 | WhatsApp Agent Configuration | ✅ live (D3) |
+| 6 | **Products & Prices** | ✅ live (D2) |
+| 7 | Configuration / Settings | ✅ live (D4) |
+
+Six of eight screens live. Deferred to Phase 3: **Segments (2) and Campaigns (3)** — the outbound-messaging half of the product.
