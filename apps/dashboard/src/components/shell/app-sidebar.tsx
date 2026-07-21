@@ -49,7 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/products', labelKey: 'nav.products', icon: Shirt, live: true },
   { href: '/campaigns', labelKey: 'nav.campaigns', icon: Megaphone, live: false },
   { href: '/agent', labelKey: 'nav.agent', icon: Bot, live: true },
-  { href: '/settings', labelKey: 'nav.settings', icon: Settings, live: false },
+  { href: '/settings', labelKey: 'nav.settings', icon: Settings, live: true },
 ];
 
 export function AppSidebar({

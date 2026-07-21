@@ -43,6 +43,17 @@ interface NavGuardContext {
 
 const Context = createContext<NavGuardContext | null>(null);
 
+/**
+ * Whether an in-app navigation must be confirmed: true when any registered
+ * screen currently reports unsaved edits. Extracted as a pure function so the
+ * intercept decision is unit-testable without a DOM (the dashboard has no
+ * component-test harness and adds no new deps for one).
+ */
+export function shouldConfirmNavigation(guards: Iterable<() => boolean>): boolean {
+  for (const isDirty of guards) if (isDirty()) return true;
+  return false;
+}
+
 export function NavGuardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   // A set of dirty-predicates: more than one big-form screen could be mounted
@@ -59,8 +70,7 @@ export function NavGuardProvider({ children }: { children: ReactNode }) {
 
   const guardedPush = useCallback(
     (href: string) => {
-      const dirty = [...guards.current].some((isDirty) => isDirty());
-      if (dirty) {
+      if (shouldConfirmNavigation(guards.current)) {
         setPendingHref(href);
         return;
       }

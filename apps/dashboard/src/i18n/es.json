@@ -20,6 +20,8 @@
     "max": "Máx.",
     "delete": "Eliminar",
     "deleting": "Eliminando…",
+    "edit": "Editar",
+    "create": "Crear",
     "add": "Añadir",
     "remove": "Quitar",
     "search": "Buscar",
@@ -54,6 +56,100 @@
     "body": "Si sales ahora, se perderán los cambios que no has guardado.",
     "stay": "Seguir editando",
     "leave": "Salir sin guardar"
+  },
+  "settings": {
+    "title": "Configuración",
+    "subtitle": "Administra los datos maestros de tu negocio",
+    "adminOnly": "Solo los administradores pueden ver esta sección.",
+    "tabs": {
+      "attributes": "Atributos de cliente",
+      "statuses": "Estados de pedido",
+      "payments": "Métodos de pago",
+      "team": "Equipo",
+      "channel": "Canal de WhatsApp"
+    },
+    "types": {
+      "text": "Texto",
+      "number": "Número",
+      "date": "Fecha",
+      "select": "Lista",
+      "boolean": "Sí / No"
+    },
+    "attributes": {
+      "title": "Atributos de cliente",
+      "description": "Campos personalizados que tu asistente puede capturar y que verás en la ficha del cliente.",
+      "add": "Nuevo atributo",
+      "key": "Clave",
+      "keyHint": "Identificador interno en minúsculas (ej. talla_preferida). No se puede cambiar después.",
+      "keyImmutable": "La clave no se puede cambiar una vez creado el atributo.",
+      "typeImmutable": "El tipo no se puede cambiar una vez creado el atributo.",
+      "label": "Nombre visible",
+      "type": "Tipo",
+      "options": "Opciones",
+      "optionsHint": "Una opción por línea.",
+      "enabled": "Activo",
+      "preset": "Predeterminado",
+      "custom": "Personalizado",
+      "empty": "Aún no hay atributos personalizados.",
+      "inUseWarning": "Este atributo lo usa el agente publicado. Si lo desactivas o eliminas, dejará de capturarlo.",
+      "dataWarning": "{count} cliente(s) ya tienen datos en este atributo. Se recomienda desactivarlo en vez de eliminarlo.",
+      "deleteTitle": "Eliminar atributo",
+      "deleteBody": "¿Seguro que quieres eliminar «{label}»? Esta acción no se puede deshacer.",
+      "created": "Atributo creado",
+      "updated": "Atributo actualizado",
+      "deleted": "Atributo eliminado"
+    },
+    "statuses": {
+      "title": "Estados de pedido",
+      "description": "Renombra y reordena las etapas de tus pedidos. Las etapas son fijas; solo cambias su nombre y orden.",
+      "name": "Nombre",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "saveOrder": "Guardar orden",
+      "orderSaved": "Orden guardado",
+      "renamed": "Estado renombrado"
+    },
+    "payments": {
+      "title": "Métodos de pago",
+      "description": "Cuentas y billeteras que tu asistente comparte al cobrar.",
+      "add": "Nuevo método",
+      "label": "Nombre",
+      "details": "Detalles",
+      "detailsHint": "Número de cuenta o billetera que se comparte con el cliente.",
+      "enabled": "Activo",
+      "empty": "Aún no hay métodos de pago.",
+      "deleteTitle": "Eliminar método de pago",
+      "deleteBody": "¿Seguro que quieres eliminar «{label}»?",
+      "created": "Método creado",
+      "updated": "Método actualizado",
+      "deleted": "Método eliminado"
+    },
+    "team": {
+      "title": "Equipo",
+      "description": "Personas con acceso a tu cuenta. Cambiar de rol es inmediato.",
+      "role": "Rol",
+      "admin": "Administrador",
+      "sales_rep": "Vendedor",
+      "you": "Tú",
+      "lastAdminHint": "Debe haber al menos un administrador.",
+      "noInvites": "Las invitaciones de nuevos usuarios llegarán próximamente.",
+      "roleChanged": "Rol actualizado"
+    },
+    "channel": {
+      "title": "Canal de WhatsApp",
+      "status": "Estado",
+      "phoneNumber": "Número",
+      "notConfigured": "Sin configurar",
+      "note": "La conexión de WhatsApp en un solo paso llegará próximamente.",
+      "statusLive": "Conectado",
+      "statusPending": "Pendiente",
+      "statusDisconnected": "Desconectado"
+    },
+    "import": {
+      "title": "Importación masiva",
+      "description": "Sube tus clientes desde un archivo CSV.",
+      "link": "Ir a importación"
+    }
   },
   "home": {
     "title": "Inicio",
