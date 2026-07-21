@@ -130,7 +130,10 @@ async function fetchItemsFor(
   const { data, error } = await client
     .from('order_items')
     .select('*')
-    .in('order_id', orderIds)
+    // Honor the line order the writer recorded (migration 9): sort_order first,
+    // created_at/id as the tie-break that degrades to legacy behavior for rows
+    // left at the default 0.
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
     .order('id', { ascending: true });
   if (error) throw error;

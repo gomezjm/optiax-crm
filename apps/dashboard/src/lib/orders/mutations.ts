@@ -74,13 +74,16 @@ export async function createOrder(
   if (orderError) throw orderError;
 
   const { error: itemsError } = await client.from('order_items').insert(
-    parsed.items.map((item) => ({
+    parsed.items.map((item, index) => ({
       tenant_id: tenantId,
       order_id: order.id,
       product_id: item.product_id,
       description: item.description,
       qty: item.qty,
       unit_price: item.unit_price,
+      // Persist the composer's row order (R2 Q-A): items render in the order the
+      // user entered them, matching the agent-created path (src/db createOrder).
+      sort_order: index,
     })),
   );
   if (itemsError) {
