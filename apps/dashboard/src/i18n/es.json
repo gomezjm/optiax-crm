@@ -49,6 +49,12 @@
     "comingSoonBadge": "Pronto",
     "comingSoonBody": "Esta pantalla estará disponible próximamente."
   },
+  "navGuard": {
+    "title": "Tienes cambios sin guardar",
+    "body": "Si sales ahora, se perderán los cambios que no has guardado.",
+    "stay": "Seguir editando",
+    "leave": "Salir sin guardar"
+  },
   "agent": {
     "title": "Agente IA",
     "subtitle": "Configura cómo responde tu agente de ventas en WhatsApp.",

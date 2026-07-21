@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { saveDraft, setAgentEnabled } from '@/lib/agent/mutations';
+import { useUnsavedGuard } from '@/components/shell/nav-guard';
 import type { AgentScreenData } from '@/lib/agent/types';
 import { ConfigForm } from './config-form';
 import { PlaygroundPanel } from './playground-panel';
@@ -70,6 +71,10 @@ export function AgentClient({ data }: { data: AgentScreenData }) {
 
   const dirty = useMemo(() => JSON.stringify(config) !== JSON.stringify(savedConfig), [config, savedConfig]);
   const draftDiffers = hasDraft && JSON.stringify(savedConfig) !== JSON.stringify(data.published);
+
+  // In-app navigation (sidebar clicks) confirms before discarding edits (§0.2);
+  // `beforeunload` below only covers browser-level nav/refresh/close.
+  useUnsavedGuard(dirty);
 
   // Warn before leaving with unsaved edits (browser-level nav/refresh/close).
   useEffect(() => {

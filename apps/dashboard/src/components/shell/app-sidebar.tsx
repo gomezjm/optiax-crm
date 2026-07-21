@@ -22,6 +22,7 @@ import {
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { t, type TranslationKey } from '@/i18n/index';
 import { cn } from '@/lib/utils';
+import { useNavGuard } from '@/components/shell/nav-guard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,6 +61,7 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { guardedPush } = useNavGuard();
 
   async function onSignOut() {
     const supabase = createSupabaseBrowserClient();
@@ -83,6 +85,16 @@ export function AppSidebar({
             <Link
               key={item.href}
               href={item.href}
+              onClick={(e) => {
+                // Let modifier/middle clicks open a new tab natively; intercept
+                // only plain in-app navigations so the guard can confirm first.
+                if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) {
+                  return;
+                }
+                if (item.href === pathname) return;
+                e.preventDefault();
+                guardedPush(item.href);
+              }}
               className={cn(
                 'flex items-center gap-2 rounded-md px-3 py-2 text-sm',
                 active

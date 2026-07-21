@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { Toaster } from '@/components/ui/sonner';
 import { AppSidebar } from '@/components/shell/app-sidebar';
+import { NavGuardProvider } from '@/components/shell/nav-guard';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const supabase = await createSupabaseServerClient();
@@ -19,10 +20,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const { data: tenant } = await supabase.from('tenants').select('name').single();
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <AppSidebar tenantName={tenant?.name ?? ''} userEmail={user.email ?? ''} />
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
-      <Toaster position="bottom-right" />
-    </div>
+    <NavGuardProvider>
+      <div className="flex h-screen overflow-hidden">
+        <AppSidebar tenantName={tenant?.name ?? ''} userEmail={user.email ?? ''} />
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
+        <Toaster position="bottom-right" />
+      </div>
+    </NavGuardProvider>
   );
 }
