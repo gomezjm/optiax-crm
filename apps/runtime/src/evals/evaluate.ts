@@ -97,8 +97,11 @@ export interface EvaluateDraftDeps {
  * suite through the deterministic layer. Throws if there is no draft to publish.
  */
 export async function evaluateDraft(tenantId: string, deps: EvaluateDraftDeps = {}): Promise<EvalRunResult> {
-  const env = loadEnv();
-  const db = deps.db ?? createDb({ url: env.supabaseUrl, serviceRoleKey: env.supabaseServiceRoleKey });
+  let db = deps.db;
+  if (!db) {
+    const env = loadEnv();
+    db = createDb({ url: env.supabaseUrl, serviceRoleKey: env.supabaseServiceRoleKey });
+  }
   const draft = await db.createTenantRepo(tenantId).getDraftConfig();
   if (!draft) throw new Error(`tenant ${tenantId} has no valid draft config to evaluate`);
   return evaluateSuite(getEvalSuite(draft.business.vertical), draft, deps.options ?? deterministicOptions());
