@@ -627,6 +627,7 @@ export type Database = {
           tenant_id: string
           total: number
           updated_at: string
+          verified_by: string | null
         }
         Insert: {
           campaign_id?: string | null
@@ -647,6 +648,7 @@ export type Database = {
           tenant_id: string
           total: number
           updated_at?: string
+          verified_by?: string | null
         }
         Update: {
           campaign_id?: string | null
@@ -667,6 +669,7 @@ export type Database = {
           tenant_id?: string
           total?: number
           updated_at?: string
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -709,6 +712,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

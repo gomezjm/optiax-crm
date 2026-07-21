@@ -119,6 +119,7 @@ export async function updateOrder(
   if (parsed.payment_verified_at !== undefined) {
     columns.payment_verified_at = parsed.payment_verified_at;
   }
+  if (parsed.verified_by !== undefined) columns.verified_by = parsed.verified_by;
   if (parsed.delivery_address !== undefined) {
     columns.delivery_address = blankToNull(parsed.delivery_address);
   }
@@ -145,9 +146,9 @@ export async function setOrderStatus(
 }
 
 /**
- * "Marcar pago verificado" (§2). There is no user column on orders, so this
- * records *when* but not *who* — see SESSION_NOTES for the `verified_by`
- * question.
+ * "Marcar pago verificado" (§2). Records both *when* and *who* (WS-D4 §0.1):
+ * the acting user is read from the current session, so the drawer can show
+ * "verificado por {name}". Unverifying clears both columns.
  */
 export async function setPaymentVerified(
   client: DashboardSupabaseClient,
@@ -155,7 +156,13 @@ export async function setPaymentVerified(
   verified: boolean,
   now: Date = new Date(),
 ): Promise<OrderRow> {
+  let verifiedBy: string | null = null;
+  if (verified) {
+    const { data } = await client.auth.getUser();
+    verifiedBy = data.user?.id ?? null;
+  }
   return updateOrder(client, orderId, {
     payment_verified_at: verified ? now.toISOString() : null,
+    verified_by: verifiedBy,
   });
 }

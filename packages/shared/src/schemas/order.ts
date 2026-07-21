@@ -58,6 +58,9 @@ const orderMutableShape = {
   payment_reference: z.string().trim().max(120).nullable(),
   payment_proof_media_path: z.string().trim().max(400).nullable(),
   payment_verified_at: z.string().datetime({ offset: true }).nullable(),
+  // Who marked the payment verified (WS-D4 §0.1). Set alongside
+  // `payment_verified_at` by the drawer; cleared to null on unverify.
+  verified_by: z.string().uuid().nullable(),
   delivery_address: z.string().trim().max(300).nullable(),
   delivery_date: isoDateField.nullable(),
   driver_notes: z.string().trim().max(500).nullable(),

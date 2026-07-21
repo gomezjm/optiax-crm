@@ -34,6 +34,7 @@ function orderItem(overrides: Partial<OrderListItem> = {}): OrderListItem {
       payment_reference: null,
       payment_proof_media_path: null,
       payment_verified_at: null,
+      verified_by: null,
       delivery_address: 'Cl 45 #13-40, Bogotá',
       delivery_date: '2026-07-20',
       driver_notes: 'Preguntar en recepción',

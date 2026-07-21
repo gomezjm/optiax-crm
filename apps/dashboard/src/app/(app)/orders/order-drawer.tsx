@@ -15,7 +15,11 @@ import type { DashboardSupabaseClient } from '@/lib/supabase/types';
 import { formatDateTime, formatMoney, formatPhone } from '@/lib/format';
 import { signMediaPath } from '@/lib/media';
 import { uploadOrderProof } from '@/lib/products/images';
-import { fetchConversationIdForCustomer, fetchOrderById } from '@/lib/orders/list';
+import {
+  fetchConversationIdForCustomer,
+  fetchOrderById,
+  fetchVerifierName,
+} from '@/lib/orders/list';
 import { setOrderStatus, setPaymentVerified, updateOrder } from '@/lib/orders/mutations';
 import { formatItemsSummary } from '@/lib/orders/summary';
 import { shortOrderId, type OrderListItem, type OrderMasters } from '@/lib/orders/types';
@@ -98,13 +102,16 @@ export function OrderDrawer({
   const [uploading, setUploading] = useState(false);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [verifierName, setVerifierName] = useState<string | null>(null);
 
   useEffect(() => {
     setProofUrl(null);
     setConversationId(null);
+    setVerifierName(null);
     if (!item) return;
     setForm(formFromItem(item));
     void signMediaPath(supabase, item.order.payment_proof_media_path).then(setProofUrl, () => {});
+    void fetchVerifierName(supabase, item.order.verified_by).then(setVerifierName, () => {});
     if (item.customer) {
       void fetchConversationIdForCustomer(supabase, item.customer.id).then(
         setConversationId,
@@ -385,8 +392,9 @@ export function OrderDrawer({
                     {t('orders.drawer.verified')}
                   </span>
                   <span className="text-emerald-800">
-                    {t('orders.drawer.verifiedAt')}:{' '}
-                    {formatDateTime(item.order.payment_verified_at)}
+                    {verifierName
+                      ? `${t('orders.drawer.verifiedBy')} ${verifierName} · ${formatDateTime(item.order.payment_verified_at)}`
+                      : `${t('orders.drawer.verifiedAt')}: ${formatDateTime(item.order.payment_verified_at)}`}
                   </span>
                   <Button
                     variant="ghost"

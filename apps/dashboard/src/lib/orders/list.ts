@@ -198,6 +198,26 @@ export async function searchCustomers(
   return data;
 }
 
+/**
+ * Display name of the profile that verified a payment (WS-D4 §0.1). Read as a
+ * standalone lookup rather than a PostgREST embed so the OrderRow shape stays
+ * flat; RLS scopes `profiles` to the tenant, so a cross-tenant id resolves to
+ * null. Returns null when the order has no verifier yet.
+ */
+export async function fetchVerifierName(
+  client: DashboardSupabaseClient,
+  profileId: string | null,
+): Promise<string | null> {
+  if (!profileId) return null;
+  const { data, error } = await client
+    .from('profiles')
+    .select('display_name')
+    .eq('id', profileId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.display_name ?? null;
+}
+
 /** The customer's conversation id (drawer deep link, reusing D1's pattern). */
 export async function fetchConversationIdForCustomer(
   client: DashboardSupabaseClient,

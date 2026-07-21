@@ -523,6 +523,7 @@
       "verify": "Marcar pago verificado",
       "verified": "Pago verificado",
       "verifiedAt": "Verificado el",
+      "verifiedBy": "Verificado por",
       "unverify": "Quitar verificación",
       "logisticsSection": "Entrega",
       "deliveryAddress": "Dirección de entrega",
