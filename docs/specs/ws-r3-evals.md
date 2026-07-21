@@ -50,3 +50,15 @@ Cover the outcomes the architecture doc names — lead capture, refusal, escalat
 - [ ] Q-C and Q-D probe rates reported in `SESSION_NOTES.md` with a recommendation each
 - [ ] Isolation + meta suites green; no new tables (if any: `tenant_id` + RLS + grants); `COMPILER_VERSION` bumped iff the compiler changed
 - [ ] `SESSION_NOTES.md`: numbered assumptions, how to run both eval layers, questions
+
+## 6. Addendum — ratified decisions + coordinator answers (2026-07-20)
+
+All assumptions ratified. Answers:
+
+1. **In-memory `EvalDb` is the canonical gate — keep it.** The gate measures *agent behavior* (does the model capture/refuse/escalate/order correctly); the *DB correctness* path (RLS, grants, triggers) is already covered end-to-end by the isolation + integration suites. Keeping the gate fast and network-free is the right default. The pluggable seam stays; a real-disposable-tenant backing is available as an occasional deeper run, not the standard gate.
+2. **Fixture location confirmed** at `packages/shared/src/evals/` via `@optiax/shared/evals` — consistent with the R2 subpath-export pattern. Do not move.
+3. **R2 Q-C closed: keep (i)** (always-fresh catalog re-check). Recall fumbles 1–2/5, acceptable; the 0/5 same-turn close is correct `confirmBeforeCreate` behavior, not a defect — **no follow-up filed**. Product-id memory (options ii/iii) is dropped, not parked.
+4. **R2 Q-D closed: rule stays unbuilt.** 5/5 escalation on payment proofs — the model-decided path is sufficient. The scoped image+awaiting_payment→handoff rule is **dropped**; revisit only if a real tenant reports a miss. (Agent offered larger-n / no-caption variants — current evidence is enough to close.)
+5. **`eval:live` stays informational (exits 0), correct.** Real-Gemini never gates a push. **Judge-average threshold alerting deferred to Phase 5** (ops/launch) — there's nothing to alert on until a hosted deployment exists.
+
+Net: R2's two parked questions are now resolved with data and closed. The eval harness and `evaluateDraft` gate are the contract D3's publish flow wires to.
