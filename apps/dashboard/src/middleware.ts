@@ -13,7 +13,7 @@ export const config = {
   matcher: [
     '/inbox/:path*',
     '/customers/:path*',
-    '/inicio',
+    '/home',
     '/orders/:path*',
     '/products/:path*',
     '/campaigns',
