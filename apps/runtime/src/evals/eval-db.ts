@@ -294,6 +294,14 @@ export class EvalDb implements RuntimeDb {
         const { conversationId } = db.seedConversation(waId);
         return Promise.resolve(db.conversations.find((c) => c.id === conversationId)!);
       },
+      getTenantMeta() {
+        return Promise.resolve({
+          currency: db.seed.currency,
+          timezone: db.seed.timezone,
+          vertical: db.seed.vertical,
+          agentEnabled: true,
+        });
+      },
       getActivePromptVersion() {
         return Promise.resolve({
           id: db.promptVersionId,
@@ -465,6 +473,10 @@ export class EvalDb implements RuntimeDb {
         const c = db.conversations.find((x) => x.id === conversationId);
         if (c) c.needs_attention = needsAttention;
         return Promise.resolve();
+      },
+      publishConfig() {
+        // The eval gate evaluates a candidate; it never publishes one.
+        return Promise.reject(new Error('eval-db: publishConfig is not supported'));
       },
     };
   }

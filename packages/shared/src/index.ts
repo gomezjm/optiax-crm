@@ -127,6 +127,17 @@ export {
   type EvalRunResult,
 } from './schemas/eval.js';
 
+export {
+  PlaygroundMessageSchema,
+  PlaygroundRequestSchema,
+  type PlaygroundMessage,
+  type PlaygroundRequest,
+  type PlaygroundToolCall,
+  type PlaygroundTurn,
+  type PlaygroundResponse,
+  type PublishResponse,
+} from './schemas/runtime-api.js';
+
 export { compilePrompt, type CompileResult } from './compiler/compile-prompt.js';
 export { VERTICAL_TEMPLATES, resolveVertical } from './compiler/verticals.js';
 

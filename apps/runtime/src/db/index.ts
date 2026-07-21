@@ -25,6 +25,7 @@ export type ProductRow = Tables['products']['Row'];
 export type OrderRow = Tables['orders']['Row'];
 export type OrderItemRow = Tables['order_items']['Row'];
 export type WaStatus = Database['public']['Enums']['e_wa_status'];
+export type UserRole = Database['public']['Enums']['e_role'];
 
 /** A catalog row joined to its category name — the agent never sees ids it can't use. */
 export interface CatalogProduct extends ProductRow {
@@ -81,6 +82,18 @@ export interface InsertMessageResult {
 
 export interface TenantRepo {
   getOrCreateConversation(waId: string, profileName: string | null): Promise<ConversationRow>;
+  /**
+   * Tenant-level settings the tools/compile need but that are not on the config:
+   * `currency` stamps agent-created orders, `vertical` selects the compiler
+   * template (matching seed-auth's `tenants.vertical`), `timezone` drives
+   * operating-hours, `agentEnabled` is the master toggle. Scoped to the bound tenant.
+   */
+  getTenantMeta(): Promise<{
+    currency: string;
+    timezone: string;
+    vertical: string;
+    agentEnabled: boolean;
+  }>;
   getActivePromptVersion(): Promise<PromptVersionRow | null>;
   /**
    * The tenant's published agent_config parsed with AgentConfigSchema.
@@ -145,6 +158,37 @@ export interface TenantRepo {
   createOrder(input: NewOrder): Promise<{ order: OrderRow; items: OrderItemRow[] }>;
   /** Flag a conversation for the human team (`handoff_to_human`). */
   setConversationNeedsAttention(conversationId: string, needsAttention: boolean): Promise<void>;
+
+  /**
+   * The config publish flow (ws-d3 §5.2): insert the compiled prompt, upsert the
+   * published config to the given snapshot, and repoint
+   * tenants.active_prompt_version_id — all in one transaction via the
+   * `publish_agent_config` RPC. Returns the new prompt_versions id. The caller
+   * (POST /publish) gates on evaluateDraft and compiles before calling this.
+   */
+  publishConfig(input: {
+    config: AgentConfig;
+    compiledPrompt: string;
+    compilerVersion: string;
+    vertical: string;
+  }): Promise<{ versionId: string }>;
+}
+
+/**
+ * Who a verified Supabase access token belongs to. The runtime resolves this
+ * from the token's claims + the caller's profile — never from a request body
+ * (ws-d3 §2). `tenantId` scopes every downstream query; `role` gates admin-only
+ * actions (config edit / publish).
+ */
+export interface AuthContext {
+  userId: string;
+  tenantId: string;
+  role: UserRole;
+}
+
+/** Verifies a Supabase access token and resolves its tenant + role. */
+export interface Authenticator {
+  authenticate(token: string): Promise<AuthContext | null>;
 }
 
 export interface WebhookEventsStore {
@@ -256,6 +300,21 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
         .single();
       if (retryError) throw retryError;
       return winner;
+    },
+
+    async getTenantMeta() {
+      const { data, error } = await client
+        .from('tenants')
+        .select('currency, timezone, vertical, agent_enabled')
+        .eq('id', tenantId)
+        .single();
+      if (error) throw error;
+      return {
+        currency: data.currency,
+        timezone: data.timezone,
+        vertical: data.vertical,
+        agentEnabled: data.agent_enabled,
+      };
     },
 
     async getActivePromptVersion() {
@@ -562,6 +621,50 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
         .eq('tenant_id', tenantId)
         .eq('id', conversationId);
       if (error) throw error;
+    },
+
+    async publishConfig(input) {
+      // tenant_id is bound here, never from the RPC caller's body — the same
+      // rule the tool executors follow. The function does the three writes
+      // atomically (migration 10).
+      const { data, error } = await client.rpc('publish_agent_config', {
+        p_tenant_id: tenantId,
+        p_config: input.config as unknown as Json,
+        p_compiled_prompt: input.compiledPrompt,
+        p_compiler_version: input.compilerVersion,
+        p_vertical: input.vertical,
+      });
+      if (error) throw error;
+      return { versionId: data };
+    },
+  };
+}
+
+/**
+ * Real Supabase-JWT authenticator (ws-d3 §2). Verifies the access token against
+ * the auth server, then loads the caller's profile for tenant + role. Lives
+ * here so the service client never leaves `src/db/`; the app injects it so tests
+ * can substitute a fake without a live auth server.
+ */
+export function createSupabaseAuthenticator(opts: {
+  url: string;
+  serviceRoleKey: string;
+}): Authenticator {
+  const client = createServiceClient(opts);
+  return {
+    async authenticate(token) {
+      const { data, error } = await client.auth.getUser(token);
+      if (error || !data.user) return null;
+
+      const { data: profile, error: profileError } = await client
+        .from('profiles')
+        .select('tenant_id, role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile) return null;
+
+      return { userId: data.user.id, tenantId: profile.tenant_id, role: profile.role };
     },
   };
 }

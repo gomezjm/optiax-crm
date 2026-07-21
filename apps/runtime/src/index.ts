@@ -4,12 +4,13 @@
  */
 import { serve } from '@hono/node-server';
 import { loadEnv } from './env.js';
-import { createDb } from './db/index.js';
+import { createDb, createSupabaseAuthenticator } from './db/index.js';
 import { createApp } from './app.js';
 import { startWorker } from './worker/worker.js';
 import { GeminiModel } from './model/gemini.js';
 import { FakeModel } from './model/fake.js';
 import type { AgentModel } from './model/types.js';
+import { deterministicOptions, type EvaluateOptions } from './evals/evaluate.js';
 import { createWaSender } from './wa/sender.js';
 
 const env = loadEnv();
@@ -24,11 +25,35 @@ if (env.geminiApiKey) {
   console.warn('[runtime] GEMINI_API_KEY not set — using FakeModel (canned replies)');
 }
 
+// The publish gate + Playground call real Gemini when a key is present; without
+// one, fall back to the deterministic layer so local dev still works end-to-end.
+let evaluateOptions: EvaluateOptions;
+if (env.geminiApiKey) {
+  const judge = new GeminiModel({ apiKey: env.geminiApiKey, modelId: env.geminiModelId });
+  evaluateOptions = { makeModel: () => model, judgeModel: judge };
+} else {
+  evaluateOptions = deterministicOptions();
+  console.warn('[runtime] GEMINI_API_KEY not set — publish gate uses the deterministic layer');
+}
+
+const authenticator = createSupabaseAuthenticator({
+  url: env.supabaseUrl,
+  serviceRoleKey: env.supabaseServiceRoleKey,
+});
+
 const sender = createWaSender(env.waSender);
 const app = createApp({
   db,
   webhookVerify: env.webhookVerify,
   ...(env.webhookSecret ? { webhookSecret: env.webhookSecret } : {}),
+  api: {
+    db,
+    authenticator,
+    playgroundModel: model,
+    evaluateOptions,
+    corsOrigin: env.dashboardOrigin,
+    log: console.log,
+  },
 });
 if (env.webhookVerify !== 'stub') {
   console.warn(

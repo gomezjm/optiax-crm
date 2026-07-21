@@ -486,6 +486,23 @@ export class FakeDb implements RuntimeDb {
         if (conversation) conversation.needs_attention = needsAttention;
         return Promise.resolve();
       },
+      getTenantMeta() {
+        return Promise.resolve({
+          currency: entry?.tenant.currency ?? 'COP',
+          timezone: entry?.tenant.timezone ?? 'America/Bogota',
+          vertical: entry?.config?.business.vertical ?? 'retail',
+          agentEnabled: entry?.tenant.agentEnabled ?? true,
+        });
+      },
+      publishConfig(input: {
+        config: AgentConfig;
+        compiledPrompt: string;
+        compilerVersion: string;
+        vertical: string;
+      }) {
+        void input;
+        return Promise.resolve({ versionId: randomUUID() });
+      },
     };
   }
 

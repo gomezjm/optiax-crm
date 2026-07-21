@@ -68,6 +68,8 @@ export interface RuntimeEnv {
   webhookSecret: string | null;
   webhookVerify: WebhookVerifyMode;
   waSender: 'mock' | '360dialog';
+  /** CORS allow-list for the dashboard→runtime routes (ws-d3 §2). */
+  dashboardOrigin: string;
   port: number;
 }
 
@@ -91,6 +93,7 @@ export function loadEnv(): RuntimeEnv {
     webhookSecret: process.env.WEBHOOK_SECRET ?? null,
     webhookVerify,
     waSender,
+    dashboardOrigin: process.env.DASHBOARD_ORIGIN ?? 'http://localhost:3000',
     port: Number(process.env.PORT ?? 8787),
   };
 }

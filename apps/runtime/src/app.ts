@@ -13,6 +13,7 @@ import { verifyWebhookSignature, WEBHOOK_SIGNATURE_HEADER } from '@optiax/shared
 import type { RuntimeDb } from './db/index.js';
 import type { WebhookVerifyMode } from './env.js';
 import { parseEnvelope } from './wa/envelope.js';
+import { mountApiRoutes, type ApiRouteDeps } from './http/api-routes.js';
 
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
 
@@ -22,6 +23,11 @@ export interface AppDeps {
   webhookSecret?: string;
   /** See WebhookVerifyMode in env.ts. Default 'stub'. */
   webhookVerify?: WebhookVerifyMode;
+  /**
+   * Enables the dashboard→runtime routes (/playground, /publish[/evaluate]).
+   * Omitted by the webhook-only test harnesses; supplied by the real entrypoint.
+   */
+  api?: ApiRouteDeps;
   log?: (message: string) => void;
 }
 
@@ -30,6 +36,8 @@ export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
 
   app.get('/health', (c) => c.json({ ok: true, version }));
+
+  if (deps.api) mountApiRoutes(app, deps.api);
 
   app.post('/webhooks/wa', async (c) => {
     const rawBody = await c.req.text();
