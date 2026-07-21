@@ -12,6 +12,7 @@
     "db:test": "pnpm build && pnpm seed:auth && vitest run --config supabase/tests/vitest.config.ts && pnpm --filter @optiax/runtime test:integration && pnpm --filter @optiax/dashboard test:db",
     "gen:types": "supabase gen types typescript --local --schema public > packages/shared/src/db-types.ts",
     "seed:auth": "tsx scripts/seed-auth.ts",
+    "recompile:prompts": "tsx scripts/recompile-prompts.ts",
     "eval": "pnpm --filter @optiax/shared build && tsx apps/runtime/src/evals/cli.ts",
     "eval:live": "pnpm --filter @optiax/shared build && tsx apps/runtime/src/evals/cli.ts --live",
     "simulate": "tsx scripts/simulate.ts",
