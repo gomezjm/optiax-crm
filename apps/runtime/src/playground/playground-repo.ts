@@ -136,7 +136,7 @@ export function createPlaygroundRepo(
       buffer.needsAttention = needsAttention;
       return Promise.resolve();
     },
-    setConversationPause: (_conversationId, _pausedUntilIso) => {
+    setConversationPause: () => {
       buffer.botPaused = true;
       return Promise.resolve();
     },
