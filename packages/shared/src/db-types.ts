@@ -1132,6 +1132,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      publish_agent_config: {
+        Args: {
+          p_compiled_prompt: string
+          p_compiler_version: string
+          p_config: Json
+          p_tenant_id: string
+          p_vertical: string
+        }
+        Returns: string
+      }
       wa_inbound_archive: { Args: { queue_msg_id: number }; Returns: boolean }
       wa_inbound_read: {
         Args: { max_messages: number; vt_seconds: number }
