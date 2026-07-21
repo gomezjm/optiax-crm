@@ -163,3 +163,27 @@ describe('"Entregas de hoy" shortcut', () => {
     ]);
   });
 });
+
+describe('multi-status deep-link (WS-D4 §1)', () => {
+  it('round-trips a set of status ids through the `status` param', () => {
+    const model: OrderFilterModel = { statusIds: ['s1', 's2', 's3'] };
+    const qs = serializeOrderFilterModel(model);
+    expect(qs.get('status')).toBe('s1,s2,s3');
+    expect(parseOrderFilterModel(new URLSearchParams(qs))).toEqual(model);
+  });
+
+  it('a single id parses back as statusId, not statusIds', () => {
+    const qs = serializeOrderFilterModel({ statusId: 'only' });
+    expect(parseOrderFilterModel(new URLSearchParams(qs))).toEqual({ statusId: 'only' });
+  });
+
+  it('builds an `in` filter for statusIds, preferred over statusId', () => {
+    const plan = buildOrderQueryPlan({ statusIds: ['a', 'b'], statusId: 'ignored' });
+    expect(plan.filters).toEqual([{ method: 'in', column: 'status_id', value: ['a', 'b'] }]);
+  });
+
+  it('counts a multi-status filter as active', () => {
+    expect(hasActiveOrderFilters({ statusIds: ['a', 'b'] })).toBe(true);
+    expect(hasActiveOrderFilters({ statusIds: [] })).toBe(false);
+  });
+});
