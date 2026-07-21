@@ -75,6 +75,7 @@ export function OrderDrawer({
   item,
   tenantId,
   currency,
+  timezone,
   masters,
   supabase,
   onClose,
@@ -84,6 +85,7 @@ export function OrderDrawer({
   item: OrderListItem | null;
   tenantId: string;
   currency: string;
+  timezone: string;
   masters: OrderMasters;
   supabase: DashboardSupabaseClient;
   onClose: () => void;
@@ -304,7 +306,7 @@ export function OrderDrawer({
               />
               {status && (
                 <p className="text-xs text-muted-foreground">
-                  {t('orders.drawer.createdAt')}: {formatDateTime(item.order.created_at)}
+                  {t('orders.drawer.createdAt')}: {formatDateTime(item.order.created_at, timezone)}
                 </p>
               )}
             </section>
@@ -393,8 +395,8 @@ export function OrderDrawer({
                   </span>
                   <span className="text-emerald-800">
                     {verifierName
-                      ? `${t('orders.drawer.verifiedBy')} ${verifierName} · ${formatDateTime(item.order.payment_verified_at)}`
-                      : `${t('orders.drawer.verifiedAt')}: ${formatDateTime(item.order.payment_verified_at)}`}
+                      ? `${t('orders.drawer.verifiedBy')} ${verifierName} · ${formatDateTime(item.order.payment_verified_at, timezone)}`
+                      : `${t('orders.drawer.verifiedAt')}: ${formatDateTime(item.order.payment_verified_at, timezone)}`}
                   </span>
                   <Button
                     variant="ghost"

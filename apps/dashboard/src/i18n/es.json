@@ -55,6 +55,27 @@
     "stay": "Seguir editando",
     "leave": "Salir sin guardar"
   },
+  "home": {
+    "title": "Inicio",
+    "subtitle": "Tu resumen de hoy",
+    "cards": {
+      "salesToday": "Ventas de hoy",
+      "pendingOrders": "Pedidos pendientes",
+      "actionNeeded": "Acción necesaria",
+      "activeCampaigns": "Campañas activas",
+      "comingSoon": "Próximamente"
+    },
+    "empty": {
+      "title": "Todo al día ✨",
+      "body": "Cuando lleguen pedidos y conversaciones, tu asistente los atenderá y aquí verás lo que necesita tu atención."
+    },
+    "actionList": {
+      "title": "Necesita tu atención",
+      "empty": "Nada pendiente por ahora.",
+      "verifyPayment": "Verificar pago",
+      "attention": "Conversación en espera"
+    }
+  },
   "agent": {
     "title": "Agente IA",
     "subtitle": "Configura cómo responde tu agente de ventas en WhatsApp.",

@@ -24,7 +24,7 @@ export default async function OrdersPage({
 
   const [{ data: profile }, { data: tenant }, masters] = await Promise.all([
     supabase.from('profiles').select('tenant_id').eq('id', user.id).single(),
-    supabase.from('tenants').select('currency').single(),
+    supabase.from('tenants').select('currency, timezone').single(),
     fetchOrderMasters(supabase),
   ]);
   if (!profile) redirect('/login');
@@ -36,6 +36,7 @@ export default async function OrdersPage({
     <OrdersClient
       tenantId={profile.tenant_id}
       currency={tenant?.currency ?? 'COP'}
+      timezone={tenant?.timezone ?? 'America/Bogota'}
       masters={masters}
       model={model}
       page={page}

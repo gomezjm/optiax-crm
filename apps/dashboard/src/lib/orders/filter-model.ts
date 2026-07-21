@@ -15,6 +15,13 @@ export interface OrderFilterModel {
   /** Matches the customer's name or phone. */
   search?: string;
   statusId?: string;
+  /**
+   * Match any of several statuses at once (WS-D4 §1): Home's "Pedidos
+   * pendientes" card deep-links to the whole pending pipeline, which is more
+   * than one status. Serialized as a comma-joined `status` param; a single id
+   * still round-trips through `statusId`. When both are set, `statusIds` wins.
+   */
+  statusIds?: string[];
   paymentState?: PaymentState;
   /** ISO dates (YYYY-MM-DD), inclusive on both ends. */
   deliveryFrom?: string;
@@ -44,8 +51,12 @@ export function parseOrderFilterModel(params: URLSearchParams): OrderFilterModel
   const search = params.get('q')?.trim();
   if (search) model.search = search;
 
-  const statusId = params.get('status')?.trim();
-  if (statusId) model.statusId = statusId;
+  const status = params.get('status')?.trim();
+  if (status) {
+    const ids = status.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    if (ids.length > 1) model.statusIds = ids;
+    else if (ids[0]) model.statusId = ids[0];
+  }
 
   const payment = params.get('payment');
   if (payment && (PAYMENT_STATES as readonly string[]).includes(payment)) {
@@ -78,7 +89,8 @@ export function parseOrderFilterModel(params: URLSearchParams): OrderFilterModel
 export function serializeOrderFilterModel(model: OrderFilterModel): URLSearchParams {
   const params = new URLSearchParams();
   if (model.search) params.set('q', model.search);
-  if (model.statusId) params.set('status', model.statusId);
+  if (model.statusIds && model.statusIds.length > 0) params.set('status', model.statusIds.join(','));
+  else if (model.statusId) params.set('status', model.statusId);
   if (model.paymentState) params.set('payment', model.paymentState);
   if (model.deliveryFrom) params.set('deliveryFrom', model.deliveryFrom);
   if (model.deliveryTo) params.set('deliveryTo', model.deliveryTo);
@@ -95,6 +107,7 @@ export function hasActiveOrderFilters(model: OrderFilterModel): boolean {
   return Boolean(
     model.search ||
       model.statusId ||
+      (model.statusIds && model.statusIds.length > 0) ||
       model.paymentState ||
       model.deliveryFrom ||
       model.deliveryTo ||

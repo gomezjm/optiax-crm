@@ -42,7 +42,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/home', labelKey: 'nav.home', icon: Home, live: false },
+  { href: '/home', labelKey: 'nav.home', icon: Home, live: true },
   { href: '/inbox', labelKey: 'nav.inbox', icon: MessageSquare, live: true },
   { href: '/customers', labelKey: 'nav.customers', icon: Users, live: true },
   { href: '/orders', labelKey: 'nav.orders', icon: Package, live: true },

@@ -29,6 +29,7 @@ interface FilterableQuery<T> {
   or(filters: string, options?: { referencedTable?: string }): T;
   is(column: string, value: null): T;
   not(column: string, operator: string, value: null): T;
+  in(column: string, values: readonly string[]): T;
   filter(column: string, operator: string, value: unknown): T;
 }
 
@@ -42,6 +43,8 @@ function applyFilter<T extends FilterableQuery<T>>(query: T, filter: PlanFilter)
       return query.is(filter.column, filter.value);
     case 'notIs':
       return query.not(filter.column, 'is', filter.value);
+    case 'in':
+      return query.in(filter.column, filter.value);
     default:
       return query.filter(filter.column, filter.method, filter.value);
   }

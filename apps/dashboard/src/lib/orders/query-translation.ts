@@ -17,6 +17,7 @@ export const TENANT_UTC_OFFSET = '-05:00';
 export type PlanFilter =
   | { method: 'or'; value: string; referencedTable?: string }
   | { method: 'is' | 'notIs'; column: string; value: null }
+  | { method: 'in'; column: string; value: string[] }
   | { method: 'eq' | 'gte' | 'lte' | 'ilike'; column: string; value: string | number | boolean };
 
 export interface OrderQueryPlan {
@@ -85,7 +86,13 @@ export function buildOrderQueryPlan(model: OrderFilterModel): OrderQueryPlan {
     });
   }
 
-  if (model.statusId) filters.push({ method: 'eq', column: 'status_id', value: model.statusId });
+  // statusIds (a set, from Home's pending deep-link) takes precedence over the
+  // filter bar's single statusId.
+  if (model.statusIds && model.statusIds.length > 0) {
+    filters.push({ method: 'in', column: 'status_id', value: model.statusIds });
+  } else if (model.statusId) {
+    filters.push({ method: 'eq', column: 'status_id', value: model.statusId });
+  }
 
   if (model.paymentState) filters.push(...paymentStateFilters(model.paymentState));
 

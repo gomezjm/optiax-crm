@@ -33,12 +33,14 @@ import { OrderCreateDrawer } from './order-create-drawer';
 export function OrdersClient({
   tenantId,
   currency,
+  timezone,
   masters,
   model,
   page,
 }: {
   tenantId: string;
   currency: string;
+  timezone: string;
   masters: OrderMasters;
   model: OrderFilterModel;
   page: OrdersPage;
@@ -85,7 +87,7 @@ export function OrdersClient({
         toast.error(t('orders.exportEmpty'));
         return;
       }
-      downloadCsv(toCsv(buildExportRows(items)), exportFileName(todayIsoDate()));
+      downloadCsv(toCsv(buildExportRows(items)), exportFileName(todayIsoDate(new Date(), timezone)));
     } catch {
       toast.error(t('common.errorGeneric'));
     } finally {
@@ -107,7 +109,7 @@ export function OrdersClient({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(todayDeliveriesModel(todayIsoDate()))}
+            onClick={() => navigate(todayDeliveriesModel(todayIsoDate(new Date(), timezone)))}
           >
             <Truck className="size-4" />
             {t('orders.todayDeliveries')}
@@ -179,6 +181,7 @@ export function OrdersClient({
         item={detail}
         tenantId={tenantId}
         currency={currency}
+        timezone={timezone}
         masters={masters}
         supabase={supabase}
         onClose={() => setDetail(null)}
