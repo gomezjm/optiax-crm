@@ -88,6 +88,12 @@ export interface TenantRepo {
    * version" (ws-r1 spec §1).
    */
   getPublishedConfig(): Promise<AgentConfig | null>;
+  /**
+   * The tenant's DRAFT agent_config parsed with AgentConfigSchema, or null when
+   * there is no draft or it fails validation. The R3 publish gate evaluates this
+   * candidate before it can replace the published config (ws-r3 §4).
+   */
+  getDraftConfig(): Promise<AgentConfig | null>;
   /** Coexistence pause: set bot_paused + paused_until (ISO, or null = indefinite). */
   setConversationPause(conversationId: string, pausedUntilIso: string | null): Promise<void>;
   /** Lazy re-arm: clear bot_paused and paused_until. */
@@ -277,6 +283,19 @@ function createTenantRepoImpl(client: ServiceClient, tenantId: string): TenantRe
         .select('config')
         .eq('tenant_id', tenantId)
         .eq('status', 'published')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const result = validateAgentConfig(data.config);
+      return result.ok ? result.config : null;
+    },
+
+    async getDraftConfig() {
+      const { data, error } = await client
+        .from('agent_configs')
+        .select('config')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'draft')
         .maybeSingle();
       if (error) throw error;
       if (!data) return null;

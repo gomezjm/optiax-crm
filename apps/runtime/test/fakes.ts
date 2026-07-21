@@ -29,6 +29,8 @@ export interface FakeTenantSeed {
   promptVersion?: Partial<PromptVersionRow> | null;
   /** Published agent_config; defaults to a minimal valid config. Null = none published. */
   config?: AgentConfig | null;
+  /** Draft agent_config for R3 publish-gate tests. Null/omitted = no draft. */
+  draftConfig?: AgentConfig | null;
 }
 
 /** Everything outside `agent` a tool test may need to vary (ws-r2). */
@@ -88,7 +90,12 @@ interface StoredAgentTurn extends NewAgentTurn {
 export class FakeDb implements RuntimeDb {
   tenants = new Map<
     string,
-    { tenant: TenantContext; promptVersion: PromptVersionRow | null; config: AgentConfig | null }
+    {
+      tenant: TenantContext;
+      promptVersion: PromptVersionRow | null;
+      config: AgentConfig | null;
+      draftConfig: AgentConfig | null;
+    }
   >();
   conversations: ConversationRow[] = [];
   messages: MessageRow[] = [];
@@ -127,6 +134,7 @@ export class FakeDb implements RuntimeDb {
       tenant: seed.tenant,
       promptVersion,
       config: seed.config === undefined ? makeAgentConfig() : seed.config,
+      draftConfig: seed.draftConfig ?? null,
     });
   }
 
@@ -249,6 +257,9 @@ export class FakeDb implements RuntimeDb {
       },
       getPublishedConfig() {
         return Promise.resolve(entry?.config ?? null);
+      },
+      getDraftConfig() {
+        return Promise.resolve(entry?.draftConfig ?? null);
       },
       setConversationPause(conversationId: string, pausedUntilIso: string | null) {
         const conversation = db.conversations.find(

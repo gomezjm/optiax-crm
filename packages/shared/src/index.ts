@@ -111,6 +111,22 @@ export {
   type CreateOrderItemArgs,
 } from './schemas/agent-tool-args.js';
 
+export {
+  EvalJudgementSchema,
+  type EvalJudgement,
+  type EvalCatalogProduct,
+  type EvalScriptedTurn,
+  type EvalCustomerTurn,
+  type EvalCheck,
+  type EvalConversationState,
+  type EvalProbe,
+  type ConversationFixture,
+  type EvalSuite,
+  type EvalCheckResult,
+  type EvalCaseResult,
+  type EvalRunResult,
+} from './schemas/eval.js';
+
 export { compilePrompt, type CompileResult } from './compiler/compile-prompt.js';
 export { VERTICAL_TEMPLATES, resolveVertical } from './compiler/verticals.js';
 
