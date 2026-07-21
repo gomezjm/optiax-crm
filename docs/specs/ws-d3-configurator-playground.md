@@ -80,3 +80,13 @@ Publishing is the only path that writes `prompt_versions` from the app (the seed
 - [ ] Nothing the Playground does persists; publish is atomic and `prompt_versions` stays insert-only
 - [ ] Every UI string in `es.json`; no service key in the dashboard; admin-only gating verified
 - [ ] `SESSION_NOTES.md`: numbered assumptions, demo script, questions
+
+## 9. Addendum — ratified decisions + coordinator answers (2026-07-21)
+
+All assumptions ratified — including the good catch that the dashboard order-list read never adopted migration 9's `(sort_order, created_at, id)` ordering (so the composer write would've been inert without the read fix). Answers:
+
+- **A. Publish gate uses real Gemini when a key is present — correct.** R3 §4's "real-Gemini never gates a push" is CI-scoped; a human clicking Publish is a different context, and evaluating the draft against the *real* model is the only honest test of "will this config behave." Deterministic assertions are the hard block (model-independent); judge scores are advisory thresholds with margin. Ratified. *(Future: if real-model noise ever false-blocks a good config, add a "publicar de todos modos" override with confirmation — Phase 5 polish, not now.)*
+- **B. Save-gated-on-valid: accept for MVP**, given the sectioned form limits how much is ever at risk. True partial-draft persistence (store loose JSON, re-hydrate an invalid draft) is a real onboarding-UX improvement → **backlogged**, candidate for a later dashboard pass. Not D4-mandatory.
+- **C. Reps get read-only config + Playground: correct.** Playground persists nothing and is rate-limited; letting a salesperson test the agent is useful and low-cost. Ratified.
+- **D. `beforeunload` guard is not enough** — it misses in-app sidebar navigation, which silently drops unsaved config. **Carry to D4**: add a full in-app navigation guard (intercept route changes with a confirm) for `/agent`. Browser-level is the MVP floor until then.
+- **E. `business.vertical` as a select (retail/food): correct and required.** Free-text would leave the publish gate with no matching eval suite. The select grows as we add verticals (each ships with its template + eval suite, per the scaling path). Ratified.
