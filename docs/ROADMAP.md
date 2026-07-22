@@ -91,8 +91,9 @@ Hosted Supabase project + deploy (Vercel, Railway), env/secrets, billing, GDPR d
 | D3 | **built + verified live** (353 unit, 288 db tests, prod build ✓) — pending Juan's review + merge | `feat/ws-d3-configurator` | 5 answers ratified → D3 spec §9. Runtime `/playground` + `/publish` (JWT-scoped); configurator + playground + publish flow. Migration 10 (`publish_agent_config` RPC). |
 | D4 | **built + verified live** (378 unit, db:test green incl. new settings/home DB tests, prod build ✓) — pending Juan's review + merge | `feat/ws-d4-home-settings` | 4 answers ratified → D4 spec §6. Migrations: `orders.verified_by` + nav guard. **Phase 2 COMPLETE** — 6/8 PRD screens live. |
 | **Phase 2** | ✅ **complete** (pending D4 merge) | — | Live: Screens 0,1,4,5,6,7. Core product demoable end-to-end: configure → playground → publish → WhatsApp msg → captured order/customer. |
-| C1 (Segments, Screen 2) | not started — Phase 3 | — | `SegmentRulesSchema` already exists (phase-0). Mostly rule-builder UI + evaluation + segment view. |
-| C2 (Campaigns, Screen 3) | not started — Phase 3 | — | Template manager (Meta/360dialog submission), broadcasts + ROI, auto-replies. Depends on C1 + the send path. |
+| C1 (Segments, Screen 2) | **built + verified live** (42 engine + 12 schema + 9 DB tests green, prod build ✓) — staged, pending Juan's go-ahead to commit + review | `feat/ws-c1-segments` | 4 answers ratified → C1 spec §7. **`SegmentRulesSchema` → v2** (`is_set`/`is_empty`, phase-0 §4). Shared engine `segmentRulesToQuery` exported for C2. |
+| C2 (Campaigns, Screen 3) | spec + brief ready; starts after C1 merges | — | Template manager (mock Meta/360dialog approval), broadcasts (segment→recipients via C1 engine, mock send), ROI. **Carry-in**: unify D1 customers date filter to calendar-day (C1-1); enforce segment delete-guard (C1-4). |
+| C3 (Auto-replies) | queued — closes Phase 3 | — | Inbound keyword/first-message/outside-hours auto-replies (`AutoReplyTriggerSchema` exists). Split from C2 to keep both reviewable. |
 
 ## Juan's action items (not agent work)
 

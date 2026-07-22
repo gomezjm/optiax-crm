@@ -48,3 +48,12 @@ Note if `SegmentRulesSchema` can't express a PRD template cleanly (e.g. "no orde
 - [ ] PRD templates seeded; any schema-expressiveness gap flagged + resolved deliberately (not dropped)
 - [ ] Every UI string in `es.json`; no service key; rep/admin gating verified; no schema change (or, if a template forced a deliberate `SegmentRulesSchema` extension: additive, versioned, tested, and flagged)
 - [ ] `SESSION_NOTES.md`: numbered assumptions, demo script, questions
+
+## 7. Addendum — ratified decisions + coordinator answers (2026-07-21)
+
+All assumptions ratified, including the sharp probe finding that PostgREST can't put a joined column inside `or=()` (tags resolve to a base-table `id in (…)` set that composes under both combinators) — that shaped the engine correctly. Answers:
+
+1. **Date-window semantics: unify on the tenant-local calendar day** (segments' approach — it matches D4/Home and the R1 runtime; "last 30 days" should mean calendar days to an SMB owner, and the same phrase must mean the same thing on the customers screen and in a segment). D1's customers filter uses a rolling `now − N·24h` and is the odd one out. **Carry-in to C2**: update the D1 customers date filter to the shared calendar-day bounds so the two agree. Low-stakes (hours at the boundary) but closes a real mental-model inconsistency before campaigns target on it.
+2. **`is_set`/`is_empty` extension: ratified.** `SEGMENT_RULES_VERSION` → 2 is additive (every v1 rule still valid), versioned, tested, and reverts cleanly — the right way to make "Solo curiosean" (has messages, no orders) faithful rather than approximated. This is now a **canonical phase-0 contract**; C2 consumes the v2 engine. Recorded in phase-0 spec §4. Do not freeze back to v1.
+3. **VIP seed thresholds (200k/300k) are placeholders** — fine for demo/tests. A real business's VIP cutoff is set at onboarding; no action now.
+4. **`delete` C2-guard hook**: correct to stub — **C2 enforces** "can't delete a segment a running/scheduled campaign references."

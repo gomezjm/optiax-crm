@@ -90,7 +90,7 @@ FK cycle: `messages.campaign_id` and `orders.campaign_id` reference `campaigns`,
 - `supabase gen types typescript` output committed as `packages/shared/src/db-types.ts` + `pnpm gen:types` script.
 - Zod schemas (each with inferred TS type exported):
   - `AgentConfigSchema` — see §5.
-  - `SegmentRulesSchema` — `{ combinator: 'and'|'or', conditions: [{ field: enum of supported fields ('last_order_at','total_spent','last_message_at','age_group','city','tag','attribute.<key>'), op: 'eq'|'neq'|'gt'|'lt'|'gte'|'lte'|'contains'|'older_than_days'|'newer_than_days', value: string|number }] }`
+  - `SegmentRulesSchema` — `{ combinator: 'and'|'or', conditions: [{ field: enum of supported fields ('last_order_at','total_spent','last_message_at','age_group','city','tag','attribute.<key>'), op: 'eq'|'neq'|'gt'|'lt'|'gte'|'lte'|'contains'|'older_than_days'|'newer_than_days', value: string|number }] }`  *(**v2**, ratified 2026-07-21 in C1 §7: `op` also includes `'is_set'|'is_empty'` — presence/absence, no value — so "has messages, no orders" is expressible. `SEGMENT_RULES_VERSION = 2`, additive, v1 rules still valid. Date ops anchor to the tenant's local calendar day. The evaluation engine `segmentRulesToQuery` lives in `packages/shared/src/segments/` and is reused server-side by C2.)*
   - `AutoReplyTriggerSchema` — `{ kind: 'keyword'|'first_message'|'outside_hours', keywords?: string[] }`
 - Constant `COMPILER_VERSION` (semver string, bump on any template change).
 
