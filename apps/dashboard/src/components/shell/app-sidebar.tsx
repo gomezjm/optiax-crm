@@ -17,6 +17,7 @@ import {
   Package,
   Settings,
   Shirt,
+  Target,
   Users,
 } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
@@ -47,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/customers', labelKey: 'nav.customers', icon: Users, live: true },
   { href: '/orders', labelKey: 'nav.orders', icon: Package, live: true },
   { href: '/products', labelKey: 'nav.products', icon: Shirt, live: true },
+  { href: '/segments', labelKey: 'nav.segments', icon: Target, live: true },
   { href: '/campaigns', labelKey: 'nav.campaigns', icon: Megaphone, live: false },
   { href: '/agent', labelKey: 'nav.agent', icon: Bot, live: true },
   { href: '/settings', labelKey: 'nav.settings', icon: Settings, live: true },

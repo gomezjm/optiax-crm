@@ -177,6 +177,19 @@ values
    '{"barrio_entrega": "Chapinero", "metodo_pago_preferido": "daviplata"}',
    'unknown', 'manual', 32000, now() - interval '3 days', now() - interval '5 days');
 
+-- A "window shopper" (ws-c1 §3): has messaged but never ordered — `last_order_at`
+-- null, `total_spent` 0. Seeded so the "Solo curiosean" template resolves to a
+-- real member and its DB test is meaningful. Deliberately no tags / attributes /
+-- conversation so it stays clear of other suites' fixtures.
+insert into public.customers
+  (id, tenant_id, wa_id, phone, name, email, address, city, gender, age_group,
+   attributes, consent_status, source, total_spent, last_order_at, last_message_at)
+values
+  ('aa000000-0020-4000-8000-000000000003', 'aa000000-0001-4000-8000-000000000001',
+   '573015550109', '573015550109', 'Sofía Herrera', null,
+   null, 'Cali', 'femenino', '18-24',
+   '{}', 'opted_in', 'agent', 0, null, now() - interval '4 days');
+
 -- ── Tags ─────────────────────────────────────────────────────────────────────
 
 insert into public.tags (id, tenant_id, name, color) values
@@ -204,6 +217,39 @@ insert into public.segments (id, tenant_id, name, rules, is_template) values
    'Corporativos activos',
    '{"combinator": "and", "conditions": [{"field": "tag", "op": "contains", "value": "Corporativo"}, {"field": "last_message_at", "op": "newer_than_days", "value": 15}]}',
    false);
+
+-- ── Pre-built segment templates (ws-c1 §3, PRD Screen 2) ─────────────────────
+-- Seeded per tenant, `is_template = true`: owners use them as-is or clone into
+-- an editable segment. VIP thresholds are tenant-appropriate (retail vs food
+-- ticket sizes). "Solo curiosean" uses the additive `is_set`/`is_empty` ops to
+-- express "has messages but no orders" faithfully (see SESSION_NOTES).
+insert into public.segments (id, tenant_id, name, rules, is_template) values
+  -- Moda Valentina (retail)
+  ('aa000000-0061-4000-8000-000000000001', 'aa000000-0001-4000-8000-000000000001',
+   'En riesgo',
+   '{"combinator": "and", "conditions": [{"field": "last_order_at", "op": "older_than_days", "value": 30}]}',
+   true),
+  ('aa000000-0061-4000-8000-000000000002', 'aa000000-0001-4000-8000-000000000001',
+   'VIP',
+   '{"combinator": "and", "conditions": [{"field": "total_spent", "op": "gte", "value": 200000}]}',
+   true),
+  ('aa000000-0061-4000-8000-000000000003', 'aa000000-0001-4000-8000-000000000001',
+   'Solo curiosean',
+   '{"combinator": "and", "conditions": [{"field": "last_message_at", "op": "is_set"}, {"field": "last_order_at", "op": "is_empty"}]}',
+   true),
+  -- Sabor Casero (food)
+  ('bb000000-0061-4000-8000-000000000001', 'bb000000-0001-4000-8000-000000000001',
+   'En riesgo',
+   '{"combinator": "and", "conditions": [{"field": "last_order_at", "op": "older_than_days", "value": 30}]}',
+   true),
+  ('bb000000-0061-4000-8000-000000000002', 'bb000000-0001-4000-8000-000000000001',
+   'VIP',
+   '{"combinator": "and", "conditions": [{"field": "total_spent", "op": "gte", "value": 300000}]}',
+   true),
+  ('bb000000-0061-4000-8000-000000000003', 'bb000000-0001-4000-8000-000000000001',
+   'Solo curiosean',
+   '{"combinator": "and", "conditions": [{"field": "last_message_at", "op": "is_set"}, {"field": "last_order_at", "op": "is_empty"}]}',
+   true);
 
 -- ── WhatsApp templates (1 approved each) ────────────────────────────────────
 

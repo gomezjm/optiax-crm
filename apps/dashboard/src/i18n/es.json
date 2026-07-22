@@ -45,6 +45,7 @@
     "customers": "Clientes",
     "orders": "Pedidos",
     "products": "Productos",
+    "segments": "Segmentos",
     "campaigns": "Campañas",
     "agent": "Agente IA",
     "settings": "Configuración",
@@ -710,6 +711,103 @@
       "document": "[documento]",
       "template": "[plantilla]",
       "other": "[mensaje]"
+    }
+  },
+  "segments": {
+    "title": "Segmentos",
+    "subtitle": "Grupos de clientes por reglas, evaluados en vivo.",
+    "new": "Nuevo segmento",
+    "templateBadge": "Plantilla",
+    "membersLabel": "clientes",
+    "updatedPrefix": "Actualizado",
+    "loadingCount": "…",
+    "invalidRules": "Reglas no válidas",
+    "actions": {
+      "view": "Ver miembros",
+      "edit": "Editar",
+      "clone": "Duplicar",
+      "delete": "Eliminar"
+    },
+    "empty": {
+      "title": "Aún no hay segmentos",
+      "body": "Crea un segmento con reglas o duplica una plantilla para empezar."
+    },
+    "list": {
+      "countHeader": "Miembros"
+    },
+    "editor": {
+      "createTitle": "Nuevo segmento",
+      "editTitle": "Editar segmento",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Ej.: VIP en Medellín",
+      "rulesLabel": "Reglas",
+      "combinatorLabel": "Coincidir con",
+      "combinatorAnd": "todas las reglas (Y)",
+      "combinatorOr": "cualquier regla (O)",
+      "addCondition": "Agregar regla",
+      "removeCondition": "Quitar regla",
+      "fieldLabel": "Campo",
+      "operatorLabel": "Operador",
+      "valueLabel": "Valor",
+      "valuePlaceholder": "Valor",
+      "daysSuffix": "días",
+      "booleanTrue": "Sí",
+      "booleanFalse": "No",
+      "selectTagPlaceholder": "Elige una etiqueta",
+      "selectValuePlaceholder": "Elige un valor",
+      "save": "Guardar segmento",
+      "nameRequired": "Ponle un nombre al segmento.",
+      "noConditions": "Agrega al menos una regla.",
+      "conditionError": "Revisa esta regla."
+    },
+    "preview": {
+      "title": "Vista previa",
+      "count": "coincidencias",
+      "empty": "Ningún cliente coincide con estas reglas todavía.",
+      "invalid": "Corrige las reglas para ver la vista previa.",
+      "sampleNote": "Mostrando hasta {n}."
+    },
+    "members": {
+      "title": "Miembros del segmento",
+      "empty": "Este segmento no tiene miembros por ahora.",
+      "liveNote": "La lista se evalúa en vivo: cambia con tus clientes."
+    },
+    "clone": {
+      "suffix": "(copia)"
+    },
+    "deleteConfirm": {
+      "title": "¿Eliminar este segmento?",
+      "body": "Se eliminará para todo el equipo. Esta acción no se puede deshacer.",
+      "confirm": "Eliminar segmento"
+    },
+    "templateAdminOnly": "Las plantillas solo las editan administradores. Duplícala para personalizarla.",
+    "toast": {
+      "created": "Segmento creado",
+      "updated": "Segmento actualizado",
+      "deleted": "Segmento eliminado",
+      "cloned": "Plantilla duplicada",
+      "error": "No se pudo guardar el segmento"
+    },
+    "fields": {
+      "last_order_at": "Último pedido",
+      "total_spent": "Total gastado",
+      "last_message_at": "Último mensaje",
+      "age_group": "Rango de edad",
+      "city": "Ciudad",
+      "tag": "Etiqueta"
+    },
+    "ops": {
+      "eq": "es igual a",
+      "neq": "no es",
+      "gt": "es mayor que",
+      "lt": "es menor que",
+      "gte": "es mayor o igual a",
+      "lte": "es menor o igual a",
+      "contains": "contiene",
+      "older_than_days": "hace más de",
+      "newer_than_days": "en los últimos",
+      "is_set": "tiene valor",
+      "is_empty": "está vacío"
     }
   }
 }

@@ -47,4 +47,24 @@ describe('SegmentRulesSchema', () => {
   it('requires at least one condition', () => {
     expect(SegmentRulesSchema.safeParse({ combinator: 'and', conditions: [] }).success).toBe(false);
   });
+
+  it('accepts presence ops without a value (ws-c1 additive extension)', () => {
+    const result = SegmentRulesSchema.safeParse({
+      combinator: 'and',
+      conditions: [
+        { field: 'last_message_at', op: 'is_set' },
+        { field: 'last_order_at', op: 'is_empty' },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('still requires a value for non-presence ops', () => {
+    expect(
+      SegmentRulesSchema.safeParse({
+        combinator: 'and',
+        conditions: [{ field: 'total_spent', op: 'gte' }],
+      }).success,
+    ).toBe(false);
+  });
 });

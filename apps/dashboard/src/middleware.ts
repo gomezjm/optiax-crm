@@ -16,6 +16,7 @@ export const config = {
     '/home',
     '/orders/:path*',
     '/products/:path*',
+    '/segments/:path*',
     '/campaigns',
     '/agent',
     '/settings',

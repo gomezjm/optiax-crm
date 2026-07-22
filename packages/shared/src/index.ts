@@ -25,11 +25,39 @@ export {
   SegmentFieldSchema,
   SegmentOpSchema,
   SEGMENT_FIELDS,
+  SEGMENT_OPS,
+  SEGMENT_PRESENCE_OPS,
+  SEGMENT_RULES_VERSION,
   type SegmentRules,
   type SegmentCondition,
   type SegmentField,
   type SegmentOp,
 } from './schemas/segment-rules.js';
+
+export {
+  segmentRulesToQuery,
+  validateSegmentRules,
+  buildSegmentPostgrestPlan,
+  referencedTagNames,
+  SegmentQueryError,
+  fieldType,
+  isAttributeField,
+  attributeKey,
+  attributeTypeToFieldType,
+  opsForFieldType,
+  isOpValidForFieldType,
+  dayCutoff,
+  type SegmentEvalContext,
+  type SegmentQuery,
+  type SegmentPredicate,
+  type SegmentPostgrestPlan,
+  type SegmentRuleError,
+  type SegmentFieldType,
+  type PgColumnOp,
+  type PgFilter,
+  type TagResolution,
+  type DayCutoff,
+} from './segments/index.js';
 
 export { AutoReplyTriggerSchema, type AutoReplyTrigger } from './schemas/auto-reply.js';
 
